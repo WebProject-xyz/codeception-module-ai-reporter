@@ -1,0 +1,51 @@
+{
+  "name": "webproject-xyz/codeception-module-ai-reporter",
+  "description": "Codeception extension that emits deterministic AI-friendly failure reports",
+  "license": "MIT",
+  "type": "library",
+  "authors": [
+    {
+      "name": "AI Assistant",
+      "email": "ai@example.com"
+    }
+  ],
+  "require": {
+    "php": "~8.3.0 || ~8.4.0 || ~8.5.0",
+    "codeception/codeception": "^5.3.5"
+  },
+  "require-dev": {
+    "codeception/module-asserts": "^3.3",
+    "friendsofphp/php-cs-fixer": "^3.94.1",
+    "mockery/mockery": "^1.6.12",
+    "phpstan/extension-installer": "^1.4.3",
+    "phpstan/phpstan": "^2.1.39",
+    "phpstan/phpstan-webmozart-assert": "^2.0.0",
+    "roave/security-advisories": "dev-latest",
+    "symfony/var-dumper": "7.4.0 || ^8.0",
+    "webmozart/assert": "^2.1.5"
+  },
+  "autoload": {
+    "psr-4": {
+      "WebProject\\Codeception\\Module\\AiReporter\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "WebProject\\Codeception\\Module\\AiReporter\\Tests\\": "tests/"
+    }
+  },
+  "config": {
+    "allow-plugins": {
+      "phpstan/extension-installer": true
+    },
+    "sort-packages": true,
+    "optimize-autoloader": true
+  },
+  "scripts": {
+    "cs:check": "php-cs-fixer fix --allow-risky=yes --sequential --dry-run --diff",
+    "cs:fix": "php-cs-fixer fix --allow-risky=yes --sequential",
+    "stan": "phpstan analyse --no-progress --debug",
+    "test": "codecept run --report",
+    "test:build": "codecept build"
+  }
+}

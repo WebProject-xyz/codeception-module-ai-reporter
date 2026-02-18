@@ -1,0 +1,240 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/WebProject-xyz/codeception-module-ai-reporter/blob/main/schema/ai-report.schema.json",
+  "title": "AI Codeception Reporter — ai-report.json",
+  "description": "Structured failure report emitted by the AI Codeception Reporter extension after each test run.",
+  "type": "object",
+  "required": ["run", "summary", "failures"],
+  "additionalProperties": false,
+  "properties": {
+    "run": {
+      "description": "Metadata about the test run that produced this report.",
+      "type": "object",
+      "required": ["generated_at", "duration_seconds", "project_root", "output_dir"],
+      "additionalProperties": false,
+      "properties": {
+        "generated_at": {
+          "description": "ISO 8601 timestamp at which the report was written.",
+          "type": "string",
+          "format": "date-time",
+          "examples": ["2026-02-19T12:00:00+00:00"]
+        },
+        "duration_seconds": {
+          "description": "Wall-clock seconds elapsed from suite start to report generation.",
+          "type": "number",
+          "minimum": 0
+        },
+        "project_root": {
+          "description": "Absolute path to the project root, with forward-slash separators.",
+          "type": "string",
+          "minLength": 1
+        },
+        "output_dir": {
+          "description": "Absolute path to the directory where report files are written.",
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "summary": {
+      "description": "Aggregated counts for the entire test run.",
+      "type": "object",
+      "required": [
+        "tests", "successful", "failures", "errors",
+        "warnings", "skipped", "incomplete", "useless",
+        "assertions", "successful_run"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "tests":          { "type": "integer", "minimum": 0 },
+        "successful":     { "type": "integer", "minimum": 0 },
+        "failures":       { "type": "integer", "minimum": 0 },
+        "errors":         { "type": "integer", "minimum": 0 },
+        "warnings":       { "type": "integer", "minimum": 0 },
+        "skipped":        { "type": "integer", "minimum": 0 },
+        "incomplete":     { "type": "integer", "minimum": 0 },
+        "useless":        { "type": "integer", "minimum": 0 },
+        "assertions":     { "type": "integer", "minimum": 0 },
+        "successful_run": {
+          "description": "True only when there are zero failures, errors, or warnings.",
+          "type": "boolean"
+        }
+      }
+    },
+    "failures": {
+      "description": "One entry per non-successful test, in the order they were captured.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/Failure" }
+    }
+  },
+  "$defs": {
+    "Failure": {
+      "description": "All context captured for a single non-successful test.",
+      "type": "object",
+      "required": [
+        "status", "suite", "test", "time_seconds",
+        "exception", "scenario_steps", "trace", "artifacts", "hints"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "description": "Outcome category reported by Codeception.",
+          "type": "string",
+          "enum": ["failure", "error", "warning", "incomplete", "skipped", "useless"]
+        },
+        "suite": {
+          "description": "Name of the Codeception suite the test belongs to.",
+          "type": "string"
+        },
+        "test": { "$ref": "#/$defs/TestInfo" },
+        "time_seconds": {
+          "description": "Elapsed seconds for this individual test.",
+          "type": "number",
+          "minimum": 0
+        },
+        "exception": { "$ref": "#/$defs/ExceptionInfo" },
+        "scenario_steps": {
+          "description": "Codeception scenario steps recorded up to and including the failing step. Empty for plain unit tests.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/ScenarioStep" }
+        },
+        "trace": {
+          "description": "Cleaned and capped stack frames. Vendor noise is removed; the throw-site is prepended as the first frame.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/TraceFrame" }
+        },
+        "artifacts": {
+          "description": "Named file artifacts associated with the test (e.g. screenshots, HAR files). Keys are artifact type names; values are file paths.",
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "hints": {
+          "description": "Pre-computed triage suggestions derived from the exception type, message, and trace.",
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "TestInfo": {
+      "description": "Identity information for a single test.",
+      "type": "object",
+      "required": ["display_name", "signature", "full_name", "file"],
+      "additionalProperties": false,
+      "properties": {
+        "display_name": {
+          "description": "Human-readable test label as produced by Codeception's Descriptor.",
+          "type": "string"
+        },
+        "signature": {
+          "description": "Short stable identifier, e.g. 'MyTest:testSomething'.",
+          "type": "string"
+        },
+        "full_name": {
+          "description": "Full test identifier including file path.",
+          "type": "string"
+        },
+        "file": {
+          "description": "Project-relative path to the test file, or null when unavailable.",
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "ExceptionInfo": {
+      "description": "Structured representation of the throwable that caused the test to fail.",
+      "type": "object",
+      "required": ["class", "message", "previous"],
+      "additionalProperties": false,
+      "properties": {
+        "class": {
+          "description": "Fully-qualified class name of the thrown exception.",
+          "type": "string",
+          "minLength": 1,
+          "examples": ["PHPUnit\\Framework\\ExpectationFailedException"]
+        },
+        "message": {
+          "description": "Exception message as returned by getMessage().",
+          "type": "string"
+        },
+        "previous": {
+          "description": "Chain of previous exceptions, outermost first.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/PreviousException" }
+        },
+        "comparison_expected": {
+          "description": "Expected value as a formatted string, present only when the exception carries a PHPUnit ComparisonFailure.",
+          "type": "string"
+        },
+        "comparison_actual": {
+          "description": "Actual value as a formatted string, present only when the exception carries a PHPUnit ComparisonFailure.",
+          "type": "string"
+        },
+        "comparison_diff": {
+          "description": "Unified diff between expected and actual, present only when the exception carries a PHPUnit ComparisonFailure.",
+          "type": "string"
+        }
+      }
+    },
+    "PreviousException": {
+      "description": "Condensed representation of a chained previous exception.",
+      "type": "object",
+      "required": ["class", "message"],
+      "additionalProperties": false,
+      "properties": {
+        "class": {
+          "description": "Fully-qualified class name.",
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {
+          "description": "Exception message.",
+          "type": "string"
+        }
+      }
+    },
+    "TraceFrame": {
+      "description": "A single stack frame from the cleaned exception trace.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "file": {
+          "description": "Project-relative (or absolute) path to the source file.",
+          "type": "string"
+        },
+        "line": {
+          "description": "Line number within the file.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "call": {
+          "description": "Callable string, e.g. 'App\\Service\\Foo->run' or 'MyTest::testSomething'.",
+          "type": "string"
+        }
+      }
+    },
+    "ScenarioStep": {
+      "description": "A single Codeception scenario step recorded during the test.",
+      "type": "object",
+      "required": ["step", "failed"],
+      "additionalProperties": false,
+      "properties": {
+        "step": {
+          "description": "Human-readable step description, e.g. 'I click \"Submit\"'.",
+          "type": "string"
+        },
+        "file": {
+          "description": "Source file where the step is defined.",
+          "type": "string"
+        },
+        "line": {
+          "description": "Line number of the step definition.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "failed": {
+          "description": "True if this step is the one at which the test failed.",
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

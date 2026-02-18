@@ -1,0 +1,9 @@
+vendor/
+.idea/
+.php-cs-fixer.cache
+.phpunit.cache/
+.gemini/
+.claude/
+AGENTS.md
+GEMINI.md
+CLAUDE.md

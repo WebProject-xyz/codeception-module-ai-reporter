@@ -1,0 +1,19 @@
+namespace: WebProject\Codeception\Module\AiReporter\Tests
+support_namespace: Support
+paths:
+    tests: tests
+    output: tests/_output
+    data: tests/Support/Data
+    support: tests/Support
+    envs: tests/_envs
+actor_suffix: Tester
+extensions:
+    enabled:
+        - Codeception\Extension\RunFailed
+        - WebProject\Codeception\Module\AiReporter\Extension\AiReporter:
+              format: both
+              output: tests/_output
+              max_frames: 8
+              include_steps: true
+              include_artifacts: true
+              compact_paths: true
