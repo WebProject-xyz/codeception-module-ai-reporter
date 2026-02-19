@@ -36,6 +36,9 @@ jobs:
             dependencies: "locked"
 
       -   name: "Check coding style"
+          run: "vendor/bin/codecept build"
+
+      -   name: "Check coding style"
           run: "composer cs:check"
 
       -   name: "Run static analysis"
