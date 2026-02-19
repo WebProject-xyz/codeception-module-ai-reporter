@@ -101,3 +101,11 @@ jobs:
           run: |
             vendor/bin/codecept build
             vendor/bin/codecept run --xml --report
+
+      -   name: "Upload coverage artifact"
+          if: matrix.with_coverage == true
+          uses: actions/upload-artifact@v6.0.0
+          with:
+            name: code-coverage-results
+            path: tests/_output/
+            retention-days: 5

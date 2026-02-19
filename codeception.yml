@@ -17,3 +17,9 @@ extensions:
               include_steps: true
               include_artifacts: true
               compact_paths: true
+coverage:
+  enabled: true
+  include:
+    - src/*
+  exclude:
+    - tests/*
