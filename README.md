@@ -1,6 +1,6 @@
 # AI Codeception Reporter
 
-[![Tests](https://github.com/WebProject-xyz/codeception-module-ai-reporter/actions/workflows/php-tests.yml/badge.svg)](https://github.com/WebProject-xyz/codeception-module-ai-reporter/actions/workflows/php-tests.yml)
+[![CI](https://github.com/WebProject-xyz/codeception-module-ai-reporter/actions/workflows/ci.yml/badge.svg)](https://github.com/WebProject-xyz/codeception-module-ai-reporter/actions/workflows/ci.yml)
 [![Release](https://github.com/WebProject-xyz/codeception-module-ai-reporter/actions/workflows/release.yml/badge.svg)](https://github.com/WebProject-xyz/codeception-module-ai-reporter/actions/workflows/release.yml)
 [![PHP Version](https://img.shields.io/packagist/php-v/WebProject-xyz/codeception-module-ai-reporter)](https://packagist.org/packages/WebProject-xyz/codeception-module-ai-reporter)
 [![Latest Stable Version](https://img.shields.io/packagist/v/WebProject-xyz/codeception-module-ai-reporter)](https://packagist.org/packages/WebProject-xyz/codeception-module-ai-reporter)

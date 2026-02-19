@@ -4,6 +4,7 @@ name: "CI"
 jobs:
   qa:
     name: "QA (lint + static analysis)"
+    if: "!startsWith(github.event.head_commit.message, 'chore(release)')"
     runs-on: "ubuntu-latest"
     env:
       PHP_CS_FIXER_IGNORE_ENV: true
