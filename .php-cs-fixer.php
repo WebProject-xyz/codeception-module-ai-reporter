@@ -73,5 +73,6 @@ $config->setLineEnding("\n");
 $config->setRiskyAllowed(true);
 $config->setParallelConfig(ParallelConfigFactory::detect());
 $config->setFinder($finder);
+$config->setUnsupportedPhpVersionAllowed(true);
 
 return $config;

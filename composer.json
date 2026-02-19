@@ -35,6 +35,9 @@
     }
   },
   "config": {
+    "platform": {
+      "php": "8.3.0"
+    },
     "allow-plugins": {
       "phpstan/extension-installer": true
     },
@@ -42,7 +45,7 @@
     "optimize-autoloader": true
   },
   "scripts": {
-    "cs:check": "php-cs-fixer fix --allow-risky=yes --sequential --dry-run --diff --no-progress",
+    "cs:check": "php-cs-fixer fix --allow-risky=yes --sequential --dry-run --diff",
     "cs:fix": "php-cs-fixer fix --allow-risky=yes --sequential",
     "stan": "phpstan analyse --no-progress --debug",
     "test": "codecept run --report",
