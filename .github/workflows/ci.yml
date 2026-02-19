@@ -29,7 +29,10 @@ jobs:
           with:
             path: "${{ env.COMPOSER_CACHE_DIR }}"
             key: "php-8.3-composer-locked-${{ hashFiles('composer.lock') }}"
-            restore-keys: "php-8.3-composer-locked-"
+            restore-keys: |
+              php-8.3-composer-locked-${{ github.ref_name }}
+              php-8.3-composer-locked-
+              php-8.3-composer-main
 
       -   name: "Install locked dependencies with composer"
           uses: "ergebnis/.github/actions/composer/install@4103ff7c010d2c18dc84f72d6704227868412482" # 1.10.0
@@ -84,7 +87,10 @@ jobs:
           with:
             path: "${{ env.COMPOSER_CACHE_DIR }}"
             key: "php-${{ matrix.php-version }}-composer-${{ matrix.dependencies }}-${{ hashFiles('composer.lock') }}"
-            restore-keys: "php-${{ matrix.php-version }}-composer-${{ matrix.dependencies }}-"
+            restore-keys: |
+              php-${{ matrix.php-version }}-composer-${{ matrix.dependencies }}-${{ github.ref_name }}
+              php-${{ matrix.php-version }}-composer-${{ matrix.dependencies }}-
+              php-${{ matrix.php-version }}-composer-main
 
       -   name: "Install ${{ matrix.dependencies }} dependencies with composer"
           uses: "ergebnis/.github/actions/composer/install@4103ff7c010d2c18dc84f72d6704227868412482" # 1.10.0
