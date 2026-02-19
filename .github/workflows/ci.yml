@@ -1,9 +1,49 @@
 on: [ push, pull_request ]
-name: "Tests"
+name: "CI"
 
 jobs:
-  php-tests:
+  qa:
+    name: "QA (lint + static analysis)"
+    runs-on: "ubuntu-latest"
+    env:
+      PHP_CS_FIXER_IGNORE_ENV: true
+    steps:
+      -   name: "Checkout"
+          uses: "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd" # v6.0.2
+
+      -   name: "Install PHP"
+          uses: "shivammathur/setup-php@44454db4f0199b8b9685a5d763dc37cbf79108e1" # 2.36.0
+          with:
+            coverage: "none"
+            php-version: "8.3"
+
+      -   name: "Validate composer.json and composer.lock"
+          run: "composer validate --ansi --strict"
+
+      -   name: "Determine composer cache directory"
+          uses: "ergebnis/.github/actions/composer/determine-cache-directory@4103ff7c010d2c18dc84f72d6704227868412482" # 1.10.0
+
+      -   name: "Cache dependencies installed with composer"
+          uses: "actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306" # v5.0.3
+          with:
+            path: "${{ env.COMPOSER_CACHE_DIR }}"
+            key: "php-8.3-composer-locked-${{ hashFiles('composer.lock') }}"
+            restore-keys: "php-8.3-composer-locked-"
+
+      -   name: "Install locked dependencies with composer"
+          uses: "ergebnis/.github/actions/composer/install@4103ff7c010d2c18dc84f72d6704227868412482" # 1.10.0
+          with:
+            dependencies: "locked"
+
+      -   name: "Check coding style"
+          run: "composer cs:check"
+
+      -   name: "Run static analysis"
+          run: "composer stan"
+
+  tests:
     name: "Run codeception tests"
+    needs: [ qa ]
     runs-on: "ubuntu-latest"
     env:
       PHP_CS_FIXER_IGNORE_ENV: true
