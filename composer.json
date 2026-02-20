@@ -3,10 +3,12 @@
   "description": "Codeception extension that emits deterministic AI-friendly failure reports",
   "license": "MIT",
   "type": "library",
+  "homepage": "https://www.webproject.xyz",
   "authors": [
     {
-      "name": "AI Assistant",
-      "email": "ai@example.com"
+      "name": "Benjamin Fahl",
+      "email": "ben+github@webproject.xyz",
+      "role": "developer"
     }
   ],
   "require": {
