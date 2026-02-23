@@ -7,9 +7,10 @@ namespace WebProject\Codeception\Module\AiReporter\Tests\Unit;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Validates that escaping a percent sign as `%%` works around the Codeception 5
- * upstream ArgumentCountError in `Codeception\Reporter\ReportPrinter` using the
- * `--report` cli flag.
+ * Exposes the upstream Codeception 5 ArgumentCountError in `Codeception\Reporter\ReportPrinter`
+ * using the `--report` cli flag when a test name contains a `%`.
+ *
+ * @see https://github.com/Codeception/Codeception/pull/6927
  */
 class ReportPrinterSprintfBugTest extends TestCase
 {
@@ -27,8 +28,8 @@ class ReportPrinterSprintfBugTest extends TestCase
     public static function provideEscapedPercentInNameCases(): iterable
     {
         return [
-            // The %% is rendered as % by the Codeception ReportPrinter sprintf
-            '100%% safely escaped' => [1],
+            // This test is expected to fail with `ArgumentCountError` due to a bug in Codeception ReportPrinter
+            '100% coverage' => [1],
         ];
     }
 }
