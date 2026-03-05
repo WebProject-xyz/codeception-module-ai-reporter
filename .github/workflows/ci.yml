@@ -1,13 +1,21 @@
-on: [ push, pull_request ]
+on:
+  push:
+    branches:
+      - "main"
+  pull_request:
+#  schedule:
+#    - cron: '24 10 * * 4'
+
 name: "CI"
+
+permissions:
+  contents: read
 
 jobs:
   qa:
     name: "QA (lint + static analysis)"
     if: "!startsWith(github.event.head_commit.message, 'chore(release)')"
     runs-on: "ubuntu-latest"
-    env:
-      PHP_CS_FIXER_IGNORE_ENV: true
     steps:
       -   name: "Checkout"
           uses: "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd" # v6.0.2
@@ -19,6 +27,7 @@ jobs:
             php-version: "8.3"
 
       -   name: "Validate composer.json and composer.lock"
+          if: "github.actor != 'renovate[bot]' || contains(github.head_ref, 'lock-file-maintenance')"
           run: "composer validate --ansi --strict"
 
       -   name: "Determine composer cache directory"
@@ -37,7 +46,7 @@ jobs:
       -   name: "Install locked dependencies with composer"
           uses: "ergebnis/.github/actions/composer/install@4103ff7c010d2c18dc84f72d6704227868412482" # 1.10.0
           with:
-            dependencies: "locked"
+            dependencies: "${{ (github.actor == 'renovate[bot]' && !contains(github.head_ref, 'lock-file-maintenance')) && 'highest' || 'locked' }}"
 
       -   name: "Check coding style"
           run: "vendor/bin/codecept build"
@@ -47,6 +56,30 @@ jobs:
 
       -   name: "Run static analysis"
           run: "composer stan"
+
+#  codacy:
+#    name: "Codacy Security Scan"
+#    if: "!startsWith(github.event.head_commit.message, 'chore(release)')"
+#    runs-on: "ubuntu-latest"
+#    permissions:
+#      contents: read
+#      security-events: write
+#      actions: read
+#    steps:
+#      - name: Checkout code
+#        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+#
+#      - name: Run Codacy Analysis CLI
+#        uses: codacy/codacy-analysis-cli-action@30783d03e758713bb5ed7b79292cfb14b9dd9a4a
+#        with:
+#          project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
+#          verbose: false
+#          output: results.sarif
+#          format: sarif
+#          upload: true
+#          skip-uncommitted-files-check: true
+#          gh-code-scanning-compat: true
+#          max-allowed-issues: 2147483647
 
   tests:
     name: "Run codeception tests"
@@ -77,6 +110,7 @@ jobs:
           run: "echo \"::add-matcher::${{ runner.tool_cache }}/phpunit.json\""
 
       -   name: "Validate composer.json and composer.lock"
+          if: "github.actor != 'renovate[bot]' || contains(github.head_ref, 'lock-file-maintenance')"
           run: "composer validate --ansi --strict"
 
       -   name: "Determine composer cache directory"
@@ -95,7 +129,7 @@ jobs:
       -   name: "Install ${{ matrix.dependencies }} dependencies with composer"
           uses: "ergebnis/.github/actions/composer/install@4103ff7c010d2c18dc84f72d6704227868412482" # 1.10.0
           with:
-            dependencies: "${{ matrix.dependencies }}"
+            dependencies: "${{ (github.actor == 'renovate[bot]' && !contains(github.head_ref, 'lock-file-maintenance') && matrix.dependencies == 'locked') && 'highest' || matrix.dependencies }}"
 
       -   name: "Run Tests (coverage)"
           if: matrix.with_coverage == true
@@ -116,3 +150,69 @@ jobs:
             name: code-coverage-results
             path: tests/_output/
             retention-days: 5
+
+#      -   name: "Upload Coverage coverage"
+#          if: matrix.with_coverage == true
+#          run: |
+#            export CODACY_PROJECT_TOKEN=${{ secrets.CODACY_PROJECT_TOKEN }}
+#            bash <(curl -Ls https://coverage.codacy.com/get.sh) report -r ./build/logs/coverage.xml
+#
+#      -   name: Upload test results to Codecov
+#          if: ${{ !cancelled() && matrix.with_coverage == true }}
+#          uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5
+#          with:
+#            token: ${{ secrets.CODECOV_TOKEN }} # not required for public repos
+#            files: ./build/logs/report.xml
+#            flags: unittests # optional
+#            report_type: test_results
+#            fail_ci_if_error: "${{ matrix.with_coverage }}" # optional (default = false)
+#            verbose: false # optional (default = false)
+#      -   name: Upload coverage to Codecov
+#          if: ${{ !cancelled() && matrix.with_coverage == true }}
+#          uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5
+#          with:
+#            token: ${{ secrets.CODECOV_TOKEN }} # not required for public repos
+#            files: ./build/logs/coverage.xml
+#            flags: unittests # optional
+#            fail_ci_if_error: "${{ matrix.with_coverage }}" # optional (default = false)
+#            verbose: false # optional (default = false)
+
+  release:
+    name: "Release"
+    needs:
+    - tests
+#    - codacy
+    if: "github.event_name == 'push' && github.ref == 'refs/heads/main' && !startsWith(github.event.head_commit.message, 'chore(release)')"
+    runs-on: "ubuntu-latest"
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Generate Token
+        id: generate_token
+        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2
+        with:
+          app-id: ${{ secrets.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
+
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          token: ${{ steps.generate_token.outputs.token }}
+
+      - name: Semantic Release
+        uses: cycjimmy/semantic-release-action@v4
+        with:
+          tag_format: ${version}
+          branches: |
+            ['main']
+          extra_plugins: |
+            @semantic-release/commit-analyzer
+            @semantic-release/release-notes-generator
+            @semantic-release/github
+            @semantic-release/changelog
+            @semantic-release/git
+            conventional-changelog-conventionalcommits
+        env:
+          GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
