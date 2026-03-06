@@ -11,6 +11,9 @@ name: "CI"
 permissions:
   contents: read
 
+env:
+  PHP_VERSION: "8.3"
+
 jobs:
   qa:
     name: "QA (lint + static analysis)"
@@ -24,7 +27,7 @@ jobs:
           uses: "shivammathur/setup-php@44454db4f0199b8b9685a5d763dc37cbf79108e1" # 2.36.0
           with:
             coverage: "none"
-            php-version: "8.3"
+            php-version: "${{ env.PHP_VERSION }}"
 
       -   name: "Validate composer.json and composer.lock"
           if: "github.actor != 'renovate[bot]' || contains(github.head_ref, 'lock-file-maintenance')"
@@ -37,11 +40,11 @@ jobs:
           uses: "actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306" # v5.0.3
           with:
             path: "${{ env.COMPOSER_CACHE_DIR }}"
-            key: "php-8.3-composer-locked-${{ hashFiles('composer.lock') }}"
+            key: "php-${{ env.PHP_VERSION }}-composer-locked-${{ hashFiles('composer.lock') }}"
             restore-keys: |
-              php-8.3-composer-locked-${{ github.ref_name }}
-              php-8.3-composer-locked-
-              php-8.3-composer-main
+              php-${{ env.PHP_VERSION }}-composer-locked-${{ github.ref_name }}
+              php-${{ env.PHP_VERSION }}-composer-locked-
+              php-${{ env.PHP_VERSION }}-composer-main
 
       -   name: "Install locked dependencies with composer"
           uses: "ergebnis/.github/actions/composer/install@4103ff7c010d2c18dc84f72d6704227868412482" # 1.10.0
@@ -202,7 +205,7 @@ jobs:
           token: ${{ steps.generate_token.outputs.token }}
 
       - name: Semantic Release
-        uses: cycjimmy/semantic-release-action@v4
+        uses: cycjimmy/semantic-release-action@v6.0.0
         with:
           tag_format: ${version}
           branches: |
