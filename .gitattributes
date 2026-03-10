@@ -1,0 +1,10 @@
+# Exclude files from the final zip package (composer install --prefer-dist)
+/.github             export-ignore
+/.gitignore          export-ignore
+/.idea               export-ignore
+/.php-cs-fixer.php   export-ignore
+/.php-version        export-ignore
+/.releaserc          export-ignore
+/composer.lock       export-ignore
+/phpstan.neon        export-ignore
+/renovate.json       export-ignore
