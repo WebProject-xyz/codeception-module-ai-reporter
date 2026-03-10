@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file. See
 [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.0.3](https://github.com/WebProject-xyz/codeception-module-ai-reporter/compare/1.0.2...1.0.3) (2026-03-10)
+
+### Bug Fixes
+
+* **deps:** update webmozart/assert dependency and widen range for symfony ([83aabce](https://github.com/WebProject-xyz/codeception-module-ai-reporter/commit/83aabce02486aae26ca36fdcc3b0c2641ed82be2))
+
 ## [1.0.2](https://github.com/WebProject-xyz/codeception-module-ai-reporter/compare/1.0.1...1.0.2) (2026-03-06)
 
 ### Bug Fixes
