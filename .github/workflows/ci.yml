@@ -8,7 +8,7 @@ name: "CI"
 
 jobs:
   ci:
-    uses: "WebProject-xyz/.github/.github/workflows/ci.yml@main"
+    uses: "WebProject-xyz/.github/.github/workflows/ci.yml@76633bf4a4c86c0ae2c3414bb189f2367f5b2e34" # main
     secrets: inherit
     with:
       with-coverage: true
