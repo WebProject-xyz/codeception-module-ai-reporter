@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file. See
 [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.1.1](https://github.com/WebProject-xyz/codeception-module-ai-reporter/compare/1.1.0...1.1.1) (2026-04-24)
+
+### Bug Fixes
+
+* **deps:** bump and update dependencies ([2b4490c](https://github.com/WebProject-xyz/codeception-module-ai-reporter/commit/2b4490c22b874578c8fce1a0f2aa011acb6ec348))
+
 ## [1.1.0](https://github.com/WebProject-xyz/codeception-module-ai-reporter/compare/1.0.3...1.1.0) (2026-03-10)
 
 ### Features
