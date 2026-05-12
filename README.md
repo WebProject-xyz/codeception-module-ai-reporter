@@ -85,6 +85,7 @@ Enables **inline AI context** — a structured block printed directly below each
 
 ```
   AI Context
+    Test failed: MyTest: check value
     Exception: PHPUnit\Framework\ExpectationFailedException
     Message: Failed asserting that two strings are identical.
     Diff:
@@ -94,7 +95,7 @@ Enables **inline AI context** — a structured block printed directly below each
       -'expected-value'
       +'actual-value'
     Trace:
-      #1 tests/Unit/MyTest.php:42 MyTest->testSomething
+      #1 tests/Unit/MyTest.php:42 MyTest->checkValue
     Hints:
       - Assertion mismatch detected; compare expected and actual values at the top non-vendor frame.
 ```
@@ -139,6 +140,7 @@ A machine-readable schema is available at [`schema/ai-report.schema.json`](schem
       "test": {
         "display_name": "MyTest: check value",
         "signature": "MyTest:checkValue",
+        "full_name": "MyTest:checkValue",
         "file": "tests/Unit/MyTest.php"
       },
       "exception": {
