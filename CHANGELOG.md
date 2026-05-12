@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file. See
 [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.2.0](https://github.com/WebProject-xyz/codeception-module-ai-reporter/compare/1.1.1...1.2.0) (2026-05-12)
+
+### Features
+
+* **docs:** sync README inline AI Context example with actual output ([e6f5d5f](https://github.com/WebProject-xyz/codeception-module-ai-reporter/commit/e6f5d5fa768e622fdb244cde091750a2c6b85429))
+* **refactor:** refactor and simplify reporter internals ([#14](https://github.com/WebProject-xyz/codeception-module-ai-reporter/issues/14)) ([ec008d9](https://github.com/WebProject-xyz/codeception-module-ai-reporter/commit/ec008d9a13895a7f48dda98f79af648167913248))
+
 ## [1.1.1](https://github.com/WebProject-xyz/codeception-module-ai-reporter/compare/1.1.0...1.1.1) (2026-04-24)
 
 ### Bug Fixes
