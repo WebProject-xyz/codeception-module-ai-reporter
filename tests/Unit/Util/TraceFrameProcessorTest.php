@@ -6,14 +6,14 @@ namespace WebProject\Codeception\Module\AiReporter\Tests\Unit\Util;
 
 use Codeception\Test\Unit;
 use RuntimeException;
-use WebProject\Codeception\Module\AiReporter\Report\PathNormalizer;
+use WebProject\Codeception\Module\AiReporter\Tests\Support\Fixture\PathNormalizerFactory;
 use WebProject\Codeception\Module\AiReporter\Util\TraceFrameProcessor;
 
 final class TraceFrameProcessorTest extends Unit
 {
     public function testRemoveNoiseFramesDropsFrameworkFramesWhenProjectFrameExists(): void
     {
-        $processor = new TraceFrameProcessor(new PathNormalizer('/repo/project', true), 8);
+        $processor = new TraceFrameProcessor(PathNormalizerFactory::make(), 8);
 
         $trace = [
             [
@@ -36,7 +36,7 @@ final class TraceFrameProcessorTest extends Unit
 
     public function testRemoveNoiseFramesFallsBackWhenOnlyFrameworkFramesExist(): void
     {
-        $processor = new TraceFrameProcessor(new PathNormalizer('/repo/project', true), 8);
+        $processor = new TraceFrameProcessor(PathNormalizerFactory::make(), 8);
 
         $trace = [
             [
@@ -59,7 +59,7 @@ final class TraceFrameProcessorTest extends Unit
 
     public function testPrepareAddsOriginFrameAndFormatsFrame(): void
     {
-        $processor = new TraceFrameProcessor(new PathNormalizer('/repo/project', true), 2);
+        $processor = new TraceFrameProcessor(PathNormalizerFactory::make(), 2);
 
         $throwable = new RuntimeException('boom');
         $prepared  = $processor->prepare($throwable, [

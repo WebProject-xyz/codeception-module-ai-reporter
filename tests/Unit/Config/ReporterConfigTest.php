@@ -30,22 +30,34 @@ final class ReporterConfigTest extends Unit
         self::assertSame('/repo/project/tests/_output', $config->outputDir());
     }
 
-    public function testInvalidFormatThrows(): void
+    /**
+     * @dataProvider provideInvalidConfigThrowsCases
+     *
+     * @param array<string, mixed> $raw
+     */
+    public function testInvalidConfigThrows(array $raw, string $expectedMessageFragment): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Invalid `format`');
+        $this->expectExceptionMessage($expectedMessageFragment);
 
         // @phpstan-ignore-next-line
-        ReporterConfig::fromArray(['format' => 'xml'], '/tmp/default-output', '/repo/project');
+        ReporterConfig::fromArray($raw, '/tmp/default-output', '/repo/project');
     }
 
-    public function testInvalidMaxFramesThrows(): void
+    /**
+     * @return array<string, array{0: array<string, mixed>, 1: string}>
+     */
+    public static function provideInvalidConfigThrowsCases(): iterable
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Invalid `max_frames`');
-
-        // @phpstan-ignore-next-line
-        ReporterConfig::fromArray(['max_frames' => 0], '/tmp/default-output', '/repo/project');
+        return [
+            'invalid format'            => [['format' => 'xml'], 'Invalid `format`'],
+            'zero max_frames'           => [['max_frames' => 0], 'Invalid `max_frames`'],
+            'non-int max_frames'        => [['max_frames' => '5'], 'Invalid `max_frames`'],
+            'non-bool include_steps'    => [['include_steps' => 'yes'], 'Invalid `include_steps`'],
+            'non-bool include_artifacts'=> [['include_artifacts' => 1], 'Invalid `include_artifacts`'],
+            'non-bool compact_paths'    => [['compact_paths' => 'true'], 'Invalid `compact_paths`'],
+            'non-string output'         => [['output' => 123], 'Invalid `output`'],
+        ];
     }
 
     public function testRelativeOutputWithWindowsProjectRootIsResolved(): void

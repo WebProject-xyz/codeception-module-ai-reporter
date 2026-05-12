@@ -5,15 +5,14 @@ declare(strict_types=1);
 namespace WebProject\Codeception\Module\AiReporter\Tests\Unit\Report;
 
 use Codeception\Test\Unit;
-use WebProject\Codeception\Module\AiReporter\Report\PathNormalizer;
 use WebProject\Codeception\Module\AiReporter\Report\TraceNormalizer;
+use WebProject\Codeception\Module\AiReporter\Tests\Support\Fixture\PathNormalizerFactory;
 
 final class TraceNormalizerTest extends Unit
 {
     public function testFiltersVendorFramesByDefaultAndLimitsSize(): void
     {
-        $pathNormalizer = new PathNormalizer('/repo/project', true);
-        $normalizer     = new TraceNormalizer($pathNormalizer, 2);
+        $normalizer = new TraceNormalizer(PathNormalizerFactory::make(), 2);
 
         $frames = [
             [
@@ -52,8 +51,7 @@ final class TraceNormalizerTest extends Unit
 
     public function testFallsBackToVendorFramesWhenNeeded(): void
     {
-        $pathNormalizer = new PathNormalizer('/repo/project', true);
-        $normalizer     = new TraceNormalizer($pathNormalizer, 3);
+        $normalizer = new TraceNormalizer(PathNormalizerFactory::make(), 3);
 
         $frames = [
             [
