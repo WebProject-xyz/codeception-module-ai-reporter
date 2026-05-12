@@ -62,10 +62,12 @@ final class ReporterConfig
             self::FORMAT_BOTH,
         );
 
-        $output = self::readOutput($raw['output'] ?? null, $defaultOutputDir);
+        $output   = self::readOutput($raw['output'] ?? null, $defaultOutputDir);
+        $resolved = self::resolvePath($output, $projectRoot);
+        $trimmed  = rtrim($resolved, '/\\');
 
         /** @var non-empty-string $outputDir */
-        $outputDir = rtrim(self::resolvePath($output, $projectRoot), '/\\');
+        $outputDir = '' === $trimmed ? $resolved : $trimmed;
 
         return new self(
             format: $format,

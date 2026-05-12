@@ -206,7 +206,8 @@ final class AiReporterTest extends Unit
 
     private function makeStubTest(string $signature): StubTest
     {
-        $filename = (string) (new ReflectionClass(StubTest::class))->getFileName();
+        $filename = (new ReflectionClass(StubTest::class))->getFileName();
+        self::assertNotFalse($filename);
 
         return new StubTest('stub', $filename, $signature);
     }
