@@ -114,12 +114,8 @@ final class TraceFrameProcessor
         $file = (string)($frame['file'] ?? '');
         $call = (string)($frame['call'] ?? '');
 
-        if ($file !== '' && !$this->isFrameworkFile($file)) {
-            return false;
-        }
-
-        if ($file !== '' && $this->isFrameworkFile($file)) {
-            return true;
+        if ($file !== '') {
+            return $this->isFrameworkFile($file);
         }
 
         return str_starts_with($call, '[throw] PHPUnit\\Framework\\')
