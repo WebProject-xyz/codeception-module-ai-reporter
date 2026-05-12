@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WebProject\Codeception\Module\AiReporter\Config;
 
+use function implode;
 use function in_array;
 use InvalidArgumentException;
 use function is_bool;
@@ -54,59 +55,85 @@ final class ReporterConfig
     public static function fromArray(array $raw, string $defaultOutputDir, string $projectRoot): self
     {
         /** @var self::FORMAT_* $format */
-        $format = $raw['format'] ?? self::FORMAT_BOTH;
-        // @phpstan-ignore-next-line
-        if (!is_string($format) || !in_array($format, [self::FORMAT_TEXT, self::FORMAT_JSON, self::FORMAT_BOTH], true)) {
-            throw new InvalidArgumentException('Invalid `format`; expected one of: text, json, both.');
-        }
+        $format = self::readEnum(
+            $raw['format'] ?? null,
+            'format',
+            [self::FORMAT_TEXT, self::FORMAT_JSON, self::FORMAT_BOTH],
+            self::FORMAT_BOTH,
+        );
 
-        $output = $raw['output'] ?? $defaultOutputDir;
-        if ('' === $output) {
-            $output = $defaultOutputDir;
-        }
-        // @phpstan-ignore-next-line
-        if (!is_string($output) || '' === $output) {
-            throw new InvalidArgumentException('Invalid `output`; expected a non-empty directory path.');
-        }
-
-        $outputDir = self::resolvePath($output, $projectRoot);
-
-        /** @var int<1, max> $maxFrames */
-        $maxFrames = $raw['max_frames'] ?? self::DEFAULT_MAX_FRAMES;
-        // @phpstan-ignore-next-line
-        if (!is_int($maxFrames) || $maxFrames < 1) {
-            throw new InvalidArgumentException('Invalid `max_frames`; expected a positive integer.');
-        }
-
-        $includeSteps = $raw['include_steps'] ?? true;
-        // @phpstan-ignore-next-line
-        if (!is_bool($includeSteps)) {
-            throw new InvalidArgumentException('Invalid `include_steps`; expected boolean.');
-        }
-
-        $includeArtifacts = $raw['include_artifacts'] ?? true;
-        // @phpstan-ignore-next-line
-        if (!is_bool($includeArtifacts)) {
-            throw new InvalidArgumentException('Invalid `include_artifacts`; expected boolean.');
-        }
-
-        $compactPaths = $raw['compact_paths'] ?? true;
-        // @phpstan-ignore-next-line
-        if (!is_bool($compactPaths)) {
-            throw new InvalidArgumentException('Invalid `compact_paths`; expected boolean.');
-        }
+        $output   = self::readOutput($raw['output'] ?? null, $defaultOutputDir);
+        $resolved = self::resolvePath($output, $projectRoot);
+        $trimmed  = rtrim($resolved, '/\\');
 
         /** @var non-empty-string $outputDir */
-        $outputDir = rtrim($outputDir, '/\\');
+        $outputDir = '' === $trimmed ? $resolved : $trimmed;
 
         return new self(
             format: $format,
             outputDir: $outputDir,
-            maxFrames: $maxFrames,
-            includeSteps: $includeSteps,
-            includeArtifacts: $includeArtifacts,
-            compactPaths: $compactPaths,
+            maxFrames: self::readPositiveInt($raw['max_frames'] ?? null, 'max_frames', self::DEFAULT_MAX_FRAMES),
+            includeSteps: self::readBool($raw['include_steps'] ?? null, 'include_steps', true),
+            includeArtifacts: self::readBool($raw['include_artifacts'] ?? null, 'include_artifacts', true),
+            compactPaths: self::readBool($raw['compact_paths'] ?? null, 'compact_paths', true),
         );
+    }
+
+    /**
+     * @param list<string> $allowed
+     */
+    private static function readEnum(mixed $value, string $field, array $allowed, string $default): string
+    {
+        if (null === $value) {
+            return $default;
+        }
+        if (!is_string($value) || !in_array($value, $allowed, true)) {
+            throw new InvalidArgumentException(sprintf('Invalid `%s`; expected one of: %s.', $field, implode(', ', $allowed)));
+        }
+
+        return $value;
+    }
+
+    /** @param non-empty-string $default */
+    private static function readOutput(mixed $value, string $default): string
+    {
+        if (null === $value || '' === $value) {
+            return $default;
+        }
+        if (!is_string($value)) {
+            throw new InvalidArgumentException('Invalid `output`; expected a non-empty directory path.');
+        }
+
+        return $value;
+    }
+
+    /**
+     * @param int<1, max> $default
+     *
+     * @return int<1, max>
+     */
+    private static function readPositiveInt(mixed $value, string $field, int $default): int
+    {
+        if (null === $value) {
+            return $default;
+        }
+        if (!is_int($value) || $value < 1) {
+            throw new InvalidArgumentException(sprintf('Invalid `%s`; expected a positive integer.', $field));
+        }
+
+        return $value;
+    }
+
+    private static function readBool(mixed $value, string $field, bool $default): bool
+    {
+        if (null === $value) {
+            return $default;
+        }
+        if (!is_bool($value)) {
+            throw new InvalidArgumentException(sprintf('Invalid `%s`; expected boolean.', $field));
+        }
+
+        return $value;
     }
 
     public function wantsJson(): bool

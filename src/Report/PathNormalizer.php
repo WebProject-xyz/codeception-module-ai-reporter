@@ -14,14 +14,14 @@ use function strtolower;
 
 final class PathNormalizer
 {
-    private string $normalizedRoot;
-    private string $normalizedRootLower;
+    private readonly string $normalizedRoot;
+    private readonly string $normalizedRootLower;
 
     public function __construct(string $projectRoot, private readonly bool $compactPaths)
     {
-        $normalized                  = str_replace('\\', '/', rtrim($projectRoot, '/\\'));
-        $this->normalizedRoot        = $normalized . '/';
-        $this->normalizedRootLower   = strtolower($this->normalizedRoot);
+        $normalized                = str_replace('\\', '/', rtrim($projectRoot, '/\\'));
+        $this->normalizedRoot      = $normalized . '/';
+        $this->normalizedRootLower = strtolower($this->normalizedRoot);
     }
 
     /**

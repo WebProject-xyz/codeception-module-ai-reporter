@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace WebProject\Codeception\Module\AiReporter\Extension;
 
+use function array_map;
 use function array_slice;
-use function array_values;
 use Codeception\Event\FailEvent;
 use Codeception\Event\PrintResultEvent;
 use Codeception\Event\SuiteEvent;
@@ -129,8 +129,7 @@ final class AiReporter extends Extension
 
     public function beforeSuite(SuiteEvent $event): void
     {
-        $suite              = $event->getSuite();
-        $this->currentSuite = null !== $suite ? $suite->getName() : '';
+        $this->currentSuite = $event->getSuite()?->getName() ?? '';
     }
 
     public function onFailure(FailEvent $event): void
@@ -201,7 +200,7 @@ final class AiReporter extends Extension
             ? $this->scenarioExtractor->extract($test, $this->runtimeConfig->maxFrames())
             : [];
 
-        $hints = array_values($this->hintGenerator->generate($throwable, $trace, $scenarioSteps));
+        $hints = $this->hintGenerator->generate($throwable, $trace, $scenarioSteps);
 
         $exception = [
             'class'    => $throwable::class,
@@ -259,42 +258,53 @@ final class AiReporter extends Extension
         $artifacts = $failure['artifacts'];
 
         $this->writeln('  <comment>AI Context</comment>');
+        $this->writeln(sprintf('    Test failed: %s', $this->consoleText->escape($failure['test']['full_name'])));
         $this->writeln(sprintf('    Exception: %s', $this->consoleText->escape($exception['class'])));
         $this->writeln(sprintf('    Message: %s', $this->consoleText->escape($this->consoleText->truncate($exception['message']))));
 
-        if (isset($exception['comparison_diff']) && '' !== $exception['comparison_diff']) {
-            $this->writeln('    Diff:');
-            foreach (explode("\n", $exception['comparison_diff']) as $diffLine) {
-                $this->writeln(sprintf('      %s', $this->consoleText->escape($diffLine)));
-            }
+        $diff = $exception['comparison_diff'] ?? '';
+        $this->printSection('Diff', '' === $diff ? [] : array_map(
+            fn (string $line): string => $this->consoleText->escape($line),
+            explode("\n", $diff),
+        ));
+
+        $traceLines = [];
+        foreach (array_slice($trace, 0, $this->runtimeConfig->maxFrames()) as $index => $frame) {
+            $traceLines[] = sprintf('#%d %s', $index + 1, $this->consoleText->escape($this->traceFrameProcessor->formatFrame($frame)));
+        }
+        $this->printSection('Trace', $traceLines);
+
+        $stepLines = [];
+        foreach (array_slice($steps, 0, 2) as $step) {
+            $stepLines[] = sprintf('- %s', $this->consoleText->escape($step['step']));
+        }
+        $this->printSection('Scenario', $stepLines);
+
+        $artifactLines = [];
+        foreach ($artifacts as $type => $path) {
+            $artifactLines[] = sprintf('- %s: %s', $this->consoleText->escape($type), $this->consoleText->escape($path));
+        }
+        $this->printSection('Artifacts', $artifactLines);
+
+        $hintLines = [];
+        foreach (array_slice($hints, 0, 3) as $hint) {
+            $hintLines[] = sprintf('- %s', $this->consoleText->escape($hint));
+        }
+        $this->printSection('Hints', $hintLines);
+    }
+
+    /**
+     * @param list<string> $lines
+     */
+    private function printSection(string $title, array $lines): void
+    {
+        if ([] === $lines) {
+            return;
         }
 
-        if ([] !== $trace) {
-            $this->writeln('    Trace:');
-            foreach (array_slice($trace, 0, $this->runtimeConfig->maxFrames()) as $index => $frame) {
-                $this->writeln(sprintf('      #%d %s', $index + 1, $this->consoleText->escape($this->traceFrameProcessor->formatFrame($frame))));
-            }
-        }
-
-        if ([] !== $steps) {
-            $this->writeln('    Scenario:');
-            foreach (array_slice($steps, 0, 2) as $step) {
-                $this->writeln(sprintf('      - %s', $this->consoleText->escape($step['step'])));
-            }
-        }
-
-        if ([] !== $artifacts) {
-            $this->writeln('    Artifacts:');
-            foreach ($artifacts as $type => $path) {
-                $this->writeln(sprintf('      - %s: %s', $this->consoleText->escape($type), $this->consoleText->escape($path)));
-            }
-        }
-
-        if ([] !== $hints) {
-            $this->writeln('    Hints:');
-            foreach (array_slice($hints, 0, 3) as $hint) {
-                $this->writeln(sprintf('      - %s', $this->consoleText->escape($hint)));
-            }
+        $this->writeln(sprintf('    %s:', $title));
+        foreach ($lines as $line) {
+            $this->writeln(sprintf('      %s', $line));
         }
     }
 
@@ -359,12 +369,9 @@ final class AiReporter extends Extension
     {
         $normalized = [];
         foreach ($reports as $type => $path) {
-            if (is_scalar($path)) {
-                $normalized[(string) $type] = $this->pathNormalizer->normalize((string) $path);
-                continue;
-            }
-
-            $normalized[(string) $type] = (string) json_encode($path, JSON_INVALID_UTF8_SUBSTITUTE);
+            $normalized[(string) $type] = is_scalar($path)
+                ? $this->pathNormalizer->normalize((string) $path)
+                : (string) json_encode($path, JSON_INVALID_UTF8_SUBSTITUTE);
         }
 
         return $normalized;
