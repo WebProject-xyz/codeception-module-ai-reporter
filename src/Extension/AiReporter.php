@@ -259,6 +259,7 @@ final class AiReporter extends Extension
         $artifacts = $failure['artifacts'];
 
         $this->writeln('  <comment>AI Context</comment>');
+        $this->writeln(sprintf('    Test failed: %s', $this->consoleText->escape($failure['test']['full_name'])));
         $this->writeln(sprintf('    Exception: %s', $this->consoleText->escape($exception['class'])));
         $this->writeln(sprintf('    Message: %s', $this->consoleText->escape($this->consoleText->truncate($exception['message']))));
 
