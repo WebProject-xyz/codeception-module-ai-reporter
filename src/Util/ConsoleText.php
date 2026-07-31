@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace WebProject\Codeception\Module\AiReporter\Util;
 
 use function intdiv;
+use function max;
 use function mb_strlen;
 use function mb_substr;
 use function strtr;
@@ -26,6 +27,13 @@ final class ConsoleText
     {
         if (mb_strlen($message) <= $maxLength) {
             return $message;
+        }
+
+        // Below this there is no room for an ellipsis plus one character per
+        // side, and a zero-length tail would make mb_substr() return the rest
+        // of the string instead of nothing.
+        if ($maxLength < 5) {
+            return mb_substr($message, 0, max(0, $maxLength));
         }
 
         $keep = intdiv($maxLength - 3, 2);

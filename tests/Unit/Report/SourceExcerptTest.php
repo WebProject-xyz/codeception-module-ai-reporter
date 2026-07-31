@@ -6,13 +6,15 @@ namespace WebProject\Codeception\Module\AiReporter\Tests\Unit\Report;
 
 use Codeception\Test\Unit;
 use function dirname;
+use WebProject\Codeception\Module\AiReporter\Report\PathNormalizer;
 use WebProject\Codeception\Module\AiReporter\Report\SourceExcerpt;
+use WebProject\Codeception\Module\AiReporter\Tests\Support\Fixture\PathNormalizerFactory;
 
 final class SourceExcerptTest extends Unit
 {
     public function testReadsCodeAroundFirstProjectFrame(): void
     {
-        $excerpt = new SourceExcerpt($this->projectRoot(), 2);
+        $excerpt = new SourceExcerpt($this->normalizer(), $this->projectRoot(), 2);
 
         $context = $excerpt->forTrace([
             ['file' => 'vendor/phpunit/phpunit/src/Framework/Assert.php', 'line' => 10],
@@ -29,7 +31,7 @@ final class SourceExcerptTest extends Unit
 
     public function testKeepsMoreLinesBeforeTheFrameThanAfter(): void
     {
-        $excerpt = new SourceExcerpt($this->projectRoot(), 6);
+        $excerpt = new SourceExcerpt($this->normalizer(), $this->projectRoot(), 6);
 
         $context = $excerpt->forTrace([['file' => 'src/Extension/AiReporter.php', 'line' => 100]]);
 
@@ -40,7 +42,7 @@ final class SourceExcerptTest extends Unit
 
     public function testClampsWindowAtStartOfFile(): void
     {
-        $excerpt = new SourceExcerpt($this->projectRoot(), 4);
+        $excerpt = new SourceExcerpt($this->normalizer(), $this->projectRoot(), 4);
 
         $context = $excerpt->forTrace([['file' => 'tests/Support/Fixture/PathNormalizerFactory.php', 'line' => 2]]);
 
@@ -51,7 +53,7 @@ final class SourceExcerptTest extends Unit
 
     public function testReturnsNullWhenNoReadableProjectFrameExists(): void
     {
-        $excerpt = new SourceExcerpt($this->projectRoot(), 2);
+        $excerpt = new SourceExcerpt($this->normalizer(), $this->projectRoot(), 2);
 
         self::assertNull($excerpt->forTrace([]));
         self::assertNull($excerpt->forTrace([['file' => 'vendor/phpunit/phpunit/src/Framework/Assert.php', 'line' => 10]]));
@@ -62,13 +64,27 @@ final class SourceExcerptTest extends Unit
 
     public function testDisabledWhenContextLinesIsZero(): void
     {
-        $excerpt = new SourceExcerpt($this->projectRoot(), 0);
+        $excerpt = new SourceExcerpt($this->normalizer(), $this->projectRoot(), 0);
 
         self::assertNull($excerpt->forTrace([['file' => 'tests/Support/Fixture/PathNormalizerFactory.php', 'line' => 13]]));
+    }
+
+    public function testSkipsVendorFramesGivenAsAbsolutePaths(): void
+    {
+        $excerpt = new SourceExcerpt($this->normalizer(), $this->projectRoot(), 2);
+
+        $absoluteVendorFile = $this->projectRoot() . '/vendor/codeception/codeception/src/Codeception/Test/Unit.php';
+
+        self::assertNull($excerpt->forTrace([['file' => $absoluteVendorFile, 'line' => 20]]));
     }
 
     private function projectRoot(): string
     {
         return dirname(__DIR__, 3);
+    }
+
+    private function normalizer(): PathNormalizer
+    {
+        return PathNormalizerFactory::make(false, $this->projectRoot());
     }
 }

@@ -21,6 +21,7 @@ final class SourceExcerpt
     private const LINES_AFTER = 2;
 
     public function __construct(
+        private readonly PathNormalizer $pathNormalizer,
         private readonly string $projectRoot,
         private readonly int $contextLines,
     ) {
@@ -43,7 +44,7 @@ final class SourceExcerpt
         foreach ($trace as $frame) {
             $file = $frame['file'] ?? null;
             $line = $frame['line'] ?? null;
-            if (null === $file || null === $line || str_starts_with($file, 'vendor/')) {
+            if (null === $file || null === $line || $this->pathNormalizer->isVendorPath($file)) {
                 continue;
             }
 

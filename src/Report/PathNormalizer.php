@@ -54,6 +54,8 @@ final class PathNormalizer
 
         $normalized = strtolower(str_replace('\\', '/', $path));
 
-        return str_contains($normalized, '/vendor/');
+        // Both forms occur: raw trace frames are absolute, frames that already
+        // went through normalize() with compact_paths are project-relative.
+        return str_starts_with($normalized, 'vendor/') || str_contains($normalized, '/vendor/');
     }
 }

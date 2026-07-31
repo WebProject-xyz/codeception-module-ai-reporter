@@ -119,7 +119,7 @@ final class AiReporter extends Extension
         );
         $this->traceNormalizer   = new TraceNormalizer($this->pathNormalizer, $this->runtimeConfig->maxFrames());
         $this->scenarioExtractor = new ScenarioExtractor($this->pathNormalizer);
-        $this->sourceExcerpt     = new SourceExcerpt($this->getRootDir(), $this->runtimeConfig->contextLines());
+        $this->sourceExcerpt     = new SourceExcerpt($this->pathNormalizer, $this->getRootDir(), $this->runtimeConfig->contextLines());
         $this->textFormatter     = new TextReportFormatter();
         $this->consoleText       = new ConsoleText();
         $this->startedAt         = microtime(true);
