@@ -51,17 +51,21 @@ final class TextReportFormatterTest extends Unit
                         'message'  => 'Failed asserting that false is true',
                         'previous' => [],
                     ],
+                    'rerun'          => 'vendor/bin/codecept run tests/Unit/ExampleTest.php:testA',
                     'scenario_steps' => [
                         ['step' => 'click "Login"', 'file' => 'tests/Acceptance/LoginCest.php', 'line' => 12, 'failed' => true],
                     ],
                     'trace' => [
                         ['file' => 'src/Service/Foo.php', 'line' => 90, 'call' => 'App\\Service\\Foo->run'],
                     ],
+                    'source_context' => [
+                        'file'       => 'src/Service/Foo.php',
+                        'line'       => 90,
+                        'start_line' => 89,
+                        'lines'      => ['$value = $this->load();', 'throw new RuntimeException($value);'],
+                    ],
                     'artifacts' => [
                         'png' => 'tests/_output/fail.png',
-                    ],
-                    'hints' => [
-                        'Assertion mismatch detected; compare expected and actual values at the top non-vendor frame.',
                     ],
                 ],
             ],
@@ -75,8 +79,9 @@ final class TextReportFormatterTest extends Unit
         self::assertStringContainsString('Scenario', $output);
         self::assertStringContainsString('Trace', $output);
         self::assertStringContainsString('Artifacts', $output);
-        self::assertStringContainsString('Hints', $output);
         self::assertStringContainsString('Example test', $output);
+        self::assertStringContainsString('rerun: vendor/bin/codecept run tests/Unit/ExampleTest.php:testA', $output);
+        self::assertStringContainsString("Source\nsrc/Service/Foo.php:90\n  89 | \$value = \$this->load();\n> 90 | throw new RuntimeException(\$value);", $output);
     }
 
     public function testRendersComparisonFieldsWhenPresent(): void
@@ -162,12 +167,13 @@ final class TextReportFormatterTest extends Unit
                         'full_name'    => 'tests/Unit/ExampleTest.php:test',
                         'file'         => 'tests/Unit/ExampleTest.php',
                     ],
+                    'rerun'          => 'vendor/bin/codecept run tests/Unit/ExampleTest.php:test',
                     'time_seconds'   => 0.001,
                     'exception'      => $exception,
                     'scenario_steps' => [],
                     'trace'          => [],
+                    'source_context' => null,
                     'artifacts'      => [],
-                    'hints'          => [],
                 ],
             ],
         ];

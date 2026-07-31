@@ -22,7 +22,8 @@ use function str_starts_with;
  *     max_frames?: int<1, max>,
  *     include_steps?: bool,
  *     include_artifacts?: bool,
- *     compact_paths?: bool
+ *     compact_paths?: bool,
+ *     context_lines?: int<0, max>
  * }
  */
 final class ReporterConfig
@@ -31,12 +32,14 @@ final class ReporterConfig
     public const FORMAT_JSON = 'json';
     public const FORMAT_BOTH = 'both';
 
-    private const DEFAULT_MAX_FRAMES = 8;
+    private const DEFAULT_MAX_FRAMES    = 8;
+    private const DEFAULT_CONTEXT_LINES = 4;
 
     /**
      * @param self::FORMAT_*   $format
      * @param non-empty-string $outputDir
      * @param int<1, max>      $maxFrames
+     * @param int<0, max>      $contextLines
      */
     private function __construct(
         private readonly string $format,
@@ -45,6 +48,7 @@ final class ReporterConfig
         private readonly bool $includeSteps,
         private readonly bool $includeArtifacts,
         private readonly bool $compactPaths,
+        private readonly int $contextLines,
     ) {
     }
 
@@ -59,7 +63,7 @@ final class ReporterConfig
             $raw['format'] ?? null,
             'format',
             [self::FORMAT_TEXT, self::FORMAT_JSON, self::FORMAT_BOTH],
-            self::FORMAT_BOTH,
+            self::FORMAT_JSON,
         );
 
         $output   = self::readOutput($raw['output'] ?? null, $defaultOutputDir);
@@ -76,6 +80,7 @@ final class ReporterConfig
             includeSteps: self::readBool($raw['include_steps'] ?? null, 'include_steps', true),
             includeArtifacts: self::readBool($raw['include_artifacts'] ?? null, 'include_artifacts', true),
             compactPaths: self::readBool($raw['compact_paths'] ?? null, 'compact_paths', true),
+            contextLines: self::readContextLines($raw['context_lines'] ?? null),
         );
     }
 
@@ -119,6 +124,19 @@ final class ReporterConfig
         }
         if (!is_int($value) || $value < 1) {
             throw new InvalidArgumentException(sprintf('Invalid `%s`; expected a positive integer.', $field));
+        }
+
+        return $value;
+    }
+
+    /** @return int<0, max> */
+    private static function readContextLines(mixed $value): int
+    {
+        if (null === $value) {
+            return self::DEFAULT_CONTEXT_LINES;
+        }
+        if (!is_int($value) || $value < 0) {
+            throw new InvalidArgumentException('Invalid `context_lines`; expected a non-negative integer.');
         }
 
         return $value;
@@ -171,6 +189,12 @@ final class ReporterConfig
     public function compactPaths(): bool
     {
         return $this->compactPaths;
+    }
+
+    /** @return int<0, max> */
+    public function contextLines(): int
+    {
+        return $this->contextLines;
     }
 
     private static function resolvePath(string $path, string $projectRoot): string

@@ -17,10 +17,10 @@ A [Codeception 5](https://codeception.com) extension that captures structured, d
 
 When an AI agent encounters a failing Codeception test, the default output is a wall of terminal text: ANSI escape codes, PHPUnit XML noise, interleaved suite headers, and a stack trace that buries the actual problem. Agents waste tokens parsing noise instead of fixing bugs.
 
-This extension solves that by producing **two clean, stable output files** after every test run:
+This extension solves that by producing a clean, stable output file after every test run:
 
-- **`ai-report.json`** — structured data ready for programmatic consumption
-- **`ai-report.txt`** — compact human-and-agent-readable summary
+- **`ai-report.json`** — structured data ready for programmatic consumption (default)
+- **`ai-report.txt`** — compact human-readable summary, enable with `format: text` or `format: both`
 
 Every failure record contains exactly what an agent needs:
 
@@ -30,7 +30,8 @@ Every failure record contains exactly what an agent needs:
 | `exception.comparison_diff` | A unified diff when values don't match — no more guessing what changed |
 | `trace` | Cleaned stack frames, vendor noise removed, capped to a useful depth |
 | `scenario_steps` | The Codeception steps leading up to the failure |
-| `hints` | Pre-computed triage suggestions (assertion mismatch, missing element, etc.) |
+| `source_context` | The code around the first project frame, so the failing line needs no separate file read |
+| `rerun` | A copy-paste command that runs exactly this one test again |
 | `artifacts` | Paths to screenshots, HAR files, and other test artifacts |
 
 With the `--report` flag, the same context is also **printed inline** in the terminal output immediately after each failure — useful for agents that read stdout directly.
@@ -55,9 +56,10 @@ Add the extension to your `codeception.yml`:
 extensions:
     enabled:
         - WebProject\Codeception\Module\AiReporter\Extension\AiReporter:
-              format: both          # text | json | both
+              format: json          # text | json | both
               output: tests/_output
               max_frames: 8
+              context_lines: 4
               include_steps: true
               include_artifacts: true
               compact_paths: true
@@ -85,7 +87,8 @@ Enables **inline AI context** — a structured block printed directly below each
 
 ```
   AI Context
-    Test failed: MyTest: check value
+    Test failed: tests/Unit/MyTest.php:checkValue
+    Rerun: vendor/bin/codecept run tests/Unit/MyTest.php:checkValue
     Exception: PHPUnit\Framework\ExpectationFailedException
     Message: Failed asserting that two strings are identical.
     Diff:
@@ -96,8 +99,11 @@ Enables **inline AI context** — a structured block printed directly below each
       +'actual-value'
     Trace:
       #1 tests/Unit/MyTest.php:42 MyTest->checkValue
-    Hints:
-      - Assertion mismatch detected; compare expected and actual values at the top non-vendor frame.
+    Source tests/Unit/MyTest.php:42:
+          40 |     {
+          41 |         $value = $this->subject->render();
+      >   42 |         self::assertSame('expected-value', $value);
+          43 |     }
 ```
 
 ### Recommended agent instruction
@@ -155,10 +161,13 @@ A machine-readable schema is available at [`schema/ai-report.schema.json`](schem
       "trace": [
         { "file": "tests/Unit/MyTest.php", "line": 42, "call": "MyTest->checkValue" }
       ],
-      "artifacts": {},
-      "hints": [
-        "Assertion mismatch detected; compare expected and actual values at the top non-vendor frame."
-      ]
+      "source_context": {
+        "file": "tests/Unit/MyTest.php",
+        "line": 42,
+        "start_line": 40,
+        "lines": ["    {", "        $value = $this->subject->render();", "        self::assertSame('expected-value', $value);", "    }"]
+      },
+      "artifacts": {}
     }
   ]
 }
@@ -176,6 +185,7 @@ Failure 1
 status: failure
 suite: Unit
 test: MyTest: check value
+rerun: vendor/bin/codecept run tests/Unit/MyTest.php:checkValue
 test_file: tests/Unit/MyTest.php
 test_signature: MyTest:checkValue
 
@@ -197,8 +207,15 @@ none
 Trace
 #1 tests/Unit/MyTest.php:42 MyTest->checkValue
 
-Hints
-- Assertion mismatch detected; compare expected and actual values at the top non-vendor frame.
+Source
+tests/Unit/MyTest.php:42
+  40 |     {
+  41 |         $value = $this->subject->render();
+> 42 |         self::assertSame('expected-value', $value);
+  43 |     }
+
+Artifacts
+none
 ```
 
 ---
@@ -207,9 +224,10 @@ Hints
 
 | Option | Type | Default | Description |
 |---|---|---|---|
-| `format` | `text\|json\|both` | `both` | Which report files to write |
+| `format` | `text\|json\|both` | `json` | Which report files to write |
 | `output` | `string` | `tests/_output` | Output directory for report files |
 | `max_frames` | `int` | `8` | Maximum stack frames per failure |
+| `context_lines` | `int` | `4` | Source lines to read before the first project frame (plus two after); `0` disables `source_context` |
 | `include_steps` | `bool` | `true` | Include Codeception scenario steps |
 | `include_artifacts` | `bool` | `true` | Include test metadata artifacts (screenshots, etc.) |
 | `compact_paths` | `bool` | `true` | Use project-relative paths where possible |

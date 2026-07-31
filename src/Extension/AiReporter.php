@@ -31,9 +31,9 @@ use stdClass;
 use Throwable;
 use Webmozart\Assert\Assert;
 use WebProject\Codeception\Module\AiReporter\Config\ReporterConfig;
-use WebProject\Codeception\Module\AiReporter\Report\HintGenerator;
 use WebProject\Codeception\Module\AiReporter\Report\PathNormalizer;
 use WebProject\Codeception\Module\AiReporter\Report\ScenarioExtractor;
+use WebProject\Codeception\Module\AiReporter\Report\SourceExcerpt;
 use WebProject\Codeception\Module\AiReporter\Report\TextReportFormatter;
 use WebProject\Codeception\Module\AiReporter\Report\TraceNormalizer;
 use WebProject\Codeception\Module\AiReporter\Util\ConsoleText;
@@ -43,6 +43,7 @@ use WebProject\Codeception\Module\AiReporter\Util\ConsoleText;
  * @phpstan-import-type Failure from \WebProject\Codeception\Module\AiReporter\Report\ReportTypes
  * @phpstan-import-type PreviousException from \WebProject\Codeception\Module\AiReporter\Report\ReportTypes
  * @phpstan-import-type RawConfig from \WebProject\Codeception\Module\AiReporter\Config\ReporterConfig
+ * @phpstan-import-type SourceContext from \WebProject\Codeception\Module\AiReporter\Report\ReportTypes
  * @phpstan-import-type SummaryInfo from \WebProject\Codeception\Module\AiReporter\Report\ReportTypes
  */
 final class AiReporter extends Extension
@@ -67,12 +68,13 @@ final class AiReporter extends Extension
      * @var RawConfig
      */
     protected array $config = [
-        'format'            => 'both',
+        'format'            => 'json',
         'output'            => '',
         'max_frames'        => 8,
         'include_steps'     => true,
         'include_artifacts' => true,
         'compact_paths'     => true,
+        'context_lines'     => 4,
     ];
 
     /** @var list<Failure> */
@@ -90,7 +92,7 @@ final class AiReporter extends Extension
 
     private ScenarioExtractor $scenarioExtractor;
 
-    private HintGenerator $hintGenerator;
+    private SourceExcerpt $sourceExcerpt;
 
     private TextReportFormatter $textFormatter;
 
@@ -117,7 +119,7 @@ final class AiReporter extends Extension
         );
         $this->traceNormalizer   = new TraceNormalizer($this->pathNormalizer, $this->runtimeConfig->maxFrames());
         $this->scenarioExtractor = new ScenarioExtractor($this->pathNormalizer);
-        $this->hintGenerator     = new HintGenerator();
+        $this->sourceExcerpt     = new SourceExcerpt($this->getRootDir(), $this->runtimeConfig->contextLines());
         $this->textFormatter     = new TextReportFormatter();
         $this->consoleText       = new ConsoleText();
         $this->startedAt         = microtime(true);
@@ -238,8 +240,6 @@ final class AiReporter extends Extension
             ? $this->scenarioExtractor->extract($test, $this->runtimeConfig->maxFrames())
             : [];
 
-        $hints = $this->hintGenerator->generate($throwable, $trace, $scenarioSteps);
-
         $exception = [
             'class'    => $throwable::class,
             'message'  => $throwable->getMessage(),
@@ -253,23 +253,26 @@ final class AiReporter extends Extension
             $exception['comparison_diff']     = $comparison['comparison_diff'];
         }
 
+        $fullName = Descriptor::getTestFullName($test);
+
         $failure = [
             'status' => $status,
             'suite'  => $this->currentSuite,
             'test'   => [
                 'display_name' => Descriptor::getTestAsString($test),
                 'signature'    => $test->getSignature(),
-                'full_name'    => Descriptor::getTestFullName($test),
+                'full_name'    => $fullName,
                 'file'         => $this->pathNormalizer->normalize($test->getFileName()),
             ],
+            'rerun'          => 'vendor/bin/codecept run ' . $fullName,
             'time_seconds'   => round($event->getTime(), 6),
             'exception'      => $exception,
             'scenario_steps' => $scenarioSteps,
             'trace'          => $trace,
+            'source_context' => $this->sourceExcerpt->forTrace($trace),
             'artifacts'      => $this->runtimeConfig->includeArtifacts()
                 ? $this->normalizeArtifacts($test->getMetadata()->getReports())
                 : [],
-            'hints' => $hints,
         ];
 
         /** @var Failure $failure */
@@ -291,14 +294,24 @@ final class AiReporter extends Extension
 
         $exception = $failure['exception'];
         $trace     = $failure['trace'];
-        $hints     = $failure['hints'];
         $steps     = $failure['scenario_steps'];
         $artifacts = $failure['artifacts'];
 
         $this->writeln('  <comment>AI Context</comment>');
         $this->writeln(sprintf('    Test failed: %s', $this->consoleText->escape($failure['test']['full_name'])));
+        $this->writeln(sprintf('    Rerun: %s', $this->consoleText->escape($failure['rerun'])));
         $this->writeln(sprintf('    Exception: %s', $this->consoleText->escape($exception['class'])));
         $this->writeln(sprintf('    Message: %s', $this->consoleText->escape($this->consoleText->truncate($exception['message']))));
+
+        $causeLines = [];
+        foreach ($exception['previous'] as $previous) {
+            $causeLines[] = sprintf(
+                '- %s: %s',
+                $this->consoleText->escape($previous['class']),
+                $this->consoleText->escape($this->consoleText->truncate($previous['message'])),
+            );
+        }
+        $this->printSection('Caused by', $causeLines);
 
         $diff = $exception['comparison_diff'] ?? '';
         $this->printSection('Diff', '' === $diff ? [] : array_map(
@@ -312,6 +325,8 @@ final class AiReporter extends Extension
         }
         $this->printSection('Trace', $traceLines);
 
+        $this->printSourceContext($failure['source_context']);
+
         $stepLines = [];
         foreach (array_slice($steps, 0, 2) as $step) {
             $stepLines[] = sprintf('- %s', $this->consoleText->escape($step['step']));
@@ -323,12 +338,27 @@ final class AiReporter extends Extension
             $artifactLines[] = sprintf('- %s: %s', $this->consoleText->escape($type), $this->consoleText->escape($path));
         }
         $this->printSection('Artifacts', $artifactLines);
+    }
 
-        $hintLines = [];
-        foreach (array_slice($hints, 0, 3) as $hint) {
-            $hintLines[] = sprintf('- %s', $this->consoleText->escape($hint));
+    /** @param SourceContext|null $context */
+    private function printSourceContext(?array $context): void
+    {
+        if (null === $context) {
+            return;
         }
-        $this->printSection('Hints', $hintLines);
+
+        $lines = [];
+        foreach ($context['lines'] as $offset => $code) {
+            $number  = $context['start_line'] + $offset;
+            $lines[] = sprintf(
+                '%s %4d | %s',
+                $number === $context['line'] ? '>' : ' ',
+                $number,
+                $this->consoleText->escape($code),
+            );
+        }
+
+        $this->printSection(sprintf('Source %s:%d', $context['file'], $context['line']), $lines);
     }
 
     /**

@@ -53,6 +53,7 @@ final class TextReportFormatter
             $lines[] = sprintf('status: %s', $failure['status']);
             $lines[] = sprintf('suite: %s', $failure['suite']);
             $lines[] = sprintf('test: %s', $failure['test']['display_name']);
+            $lines[] = sprintf('rerun: %s', $failure['rerun']);
             $lines[] = sprintf('test_file: %s', $failure['test']['file'] ?? '');
             $lines[] = sprintf('test_signature: %s', $failure['test']['signature']);
             $lines[] = sprintf('duration_seconds: %s', (string) $failure['time_seconds']);
@@ -117,6 +118,19 @@ final class TextReportFormatter
             }
             $lines[] = '';
 
+            $lines[] = 'Source';
+            $context = $failure['source_context'];
+            if (null === $context) {
+                $lines[] = 'none';
+            } else {
+                $lines[] = sprintf('%s:%d', $context['file'], $context['line']);
+                foreach ($context['lines'] as $offset => $code) {
+                    $number  = $context['start_line'] + $offset;
+                    $lines[] = sprintf('%s %d | %s', $number === $context['line'] ? '>' : ' ', $number, $code);
+                }
+            }
+            $lines[] = '';
+
             $lines[]   = 'Artifacts';
             $artifacts = $failure['artifacts'];
             if ([] === $artifacts) {
@@ -124,17 +138,6 @@ final class TextReportFormatter
             } else {
                 foreach ($artifacts as $type => $artifactPath) {
                     $lines[] = sprintf('- %s: %s', $type, (string) $artifactPath);
-                }
-            }
-            $lines[] = '';
-
-            $lines[] = 'Hints';
-            $hints   = $failure['hints'];
-            if ([] === $hints) {
-                $lines[] = '- none';
-            } else {
-                foreach ($hints as $hint) {
-                    $lines[] = sprintf('- %s', $hint);
                 }
             }
             $lines[] = '';

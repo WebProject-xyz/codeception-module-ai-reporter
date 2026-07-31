@@ -22,11 +22,12 @@ final class ConsoleTextTest extends Unit
         self::assertStringContainsString('\\<error\\>', $escaped);
     }
 
-    public function testTruncateAddsEllipsisWhenNeeded(): void
+    public function testTruncateKeepsBothEndsOfLongMessages(): void
     {
         $util = new ConsoleText();
 
         self::assertSame('short', $util->truncate('short', 10));
-        self::assertSame('ab...', $util->truncate('abcdef', 5));
+        self::assertSame('a...f', $util->truncate('abcdef', 5));
+        self::assertSame('abc...hij', $util->truncate('abcdefghij', 9));
     }
 }

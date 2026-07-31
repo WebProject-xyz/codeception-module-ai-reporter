@@ -8,10 +8,12 @@ namespace WebProject\Codeception\Module\AiReporter\Report;
  * @phpstan-type TraceFrame array{file?: string, line?: int, call?: string}
  * @phpstan-type ScenarioStep array{step: string, file?: string, line?: int, failed: bool}
  * @phpstan-type PreviousException array{class: non-empty-string, message: string}
+ * @phpstan-type SourceContext array{file: string, line: int, start_line: int, lines: list<string>}
  * @phpstan-type Failure array{
  *     status: non-empty-string,
  *     suite: string,
  *     test: array{display_name: string, signature: string, full_name: string, file: string|null},
+ *     rerun: string,
  *     time_seconds: float,
  *     exception: array{
  *         class: non-empty-string,
@@ -23,8 +25,8 @@ namespace WebProject\Codeception\Module\AiReporter\Report;
  *     },
  *     scenario_steps: array<int, ScenarioStep>,
  *     trace: array<int, TraceFrame>,
- *     artifacts: array<string, string>,
- *     hints: array<int, string>
+ *     source_context: SourceContext|null,
+ *     artifacts: array<string, string>
  * }
  * @phpstan-type SummaryInfo array{
  *     tests: int,
