@@ -39,6 +39,10 @@ final class HintGenerator
             $hints['ui'] = 'UI element lookup failed; verify locator stability and page state before this step.';
         }
 
+        if (null !== $throwable->getPrevious()) {
+            $hints['previous'] = 'Exception wraps a cause chain; read the last entry of `previous` first, it holds the root failure.';
+        }
+
         if ([] === $trace) {
             $hints['trace'] = 'No filtered trace frames were captured; rerun with higher verbosity if deeper diagnostics are needed.';
         }

@@ -39,4 +39,30 @@ final class HintGeneratorTest extends Unit
         self::assertGreaterThanOrEqual(2, count($hints));
         self::assertStringContainsString('last scenario step', implode(' ', $hints));
     }
+
+    public function testGeneratesPreviousChainHintWhenCauseExists(): void
+    {
+        $generator = new HintGenerator();
+
+        $hints = $generator->generate(
+            new RuntimeException('kaboom', 0, new RuntimeException('root cause')),
+            [['file' => 'src/Service/Foo.php', 'line' => 10, 'call' => 'App\\Foo->bar']],
+            []
+        );
+
+        self::assertStringContainsString('cause chain', implode(' ', $hints));
+    }
+
+    public function testOmitsPreviousChainHintWithoutCause(): void
+    {
+        $generator = new HintGenerator();
+
+        $hints = $generator->generate(
+            new RuntimeException('kaboom'),
+            [['file' => 'src/Service/Foo.php', 'line' => 10, 'call' => 'App\\Foo->bar']],
+            []
+        );
+
+        self::assertStringNotContainsString('cause chain', implode(' ', $hints));
+    }
 }
