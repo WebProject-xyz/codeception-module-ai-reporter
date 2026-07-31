@@ -172,7 +172,15 @@ final class AiReporterTest extends Unit
 
         self::assertSame("'hello'", $exception['comparison_expected']);
         self::assertSame("'world'", $exception['comparison_actual']);
-        self::assertStringContainsString('--- Expected', $exception['comparison_diff']);
+        self::assertStringStartsWith('--- Expected', $exception['comparison_diff']);
+        self::assertSame($exception['comparison_diff'], trim($exception['comparison_diff']));
+    }
+
+    public function testJsonReportEncodesEmptyArtifactsAsObject(): void
+    {
+        $reports = $this->captureReports(new RuntimeException('boom'));
+
+        self::assertStringContainsString('"artifacts": {}', $reports['json']);
     }
 
     /**

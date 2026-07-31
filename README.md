@@ -148,7 +148,7 @@ A machine-readable schema is available at [`schema/ai-report.schema.json`](schem
         "message": "Failed asserting that two strings are identical.",
         "comparison_expected": "'expected-value'",
         "comparison_actual": "'actual-value'",
-        "comparison_diff": "\n--- Expected\n+++ Actual\n@@ @@\n-'expected-value'\n+'actual-value'\n",
+        "comparison_diff": "--- Expected\n+++ Actual\n@@ @@\n-'expected-value'\n+'actual-value'",
         "previous": []
       },
       "scenario_steps": [],

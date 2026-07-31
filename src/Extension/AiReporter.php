@@ -27,6 +27,7 @@ use function mkdir;
 use PHPUnit\Framework\ExpectationFailedException;
 use RuntimeException;
 use function sprintf;
+use stdClass;
 use Throwable;
 use Webmozart\Assert\Assert;
 use WebProject\Codeception\Module\AiReporter\Config\ReporterConfig;
@@ -166,7 +167,7 @@ final class AiReporter extends Extension
             $this->writeReport(
                 'AI JSON',
                 $outputDir . '/ai-report.json',
-                static fn (): string => json_encode($report, self::JSON_FLAGS) . "\n",
+                static fn (): string => json_encode(self::encodable($report), self::JSON_FLAGS) . "\n",
             );
         }
 
@@ -177,6 +178,34 @@ final class AiReporter extends Extension
                 fn (): string => $this->textFormatter->format($report),
             );
         }
+    }
+
+    /**
+     * The schema declares `artifacts` as a map, but an empty PHP array encodes
+     * as `[]`. Cast it so every failure keeps the same JSON shape.
+     *
+     * @param AiReport $report
+     *
+     * @return array<string, mixed>
+     */
+    private static function encodable(array $report): array
+    {
+        $failures = [];
+        foreach ($report['failures'] as $failure) {
+            /** @var array<string, mixed> $encoded */
+            $encoded = $failure;
+            if ([] === $failure['artifacts']) {
+                $encoded['artifacts'] = new stdClass();
+            }
+
+            $failures[] = $encoded;
+        }
+
+        return [
+            'run'      => $report['run'],
+            'summary'  => $report['summary'],
+            'failures' => $failures,
+        ];
     }
 
     /** @param callable(): string $render */
@@ -233,7 +262,7 @@ final class AiReporter extends Extension
                 'full_name'    => Descriptor::getTestFullName($test),
                 'file'         => $this->pathNormalizer->normalize($test->getFileName()),
             ],
-            'time_seconds'   => $event->getTime(),
+            'time_seconds'   => round($event->getTime(), 6),
             'exception'      => $exception,
             'scenario_steps' => $scenarioSteps,
             'trace'          => $trace,
@@ -365,7 +394,7 @@ final class AiReporter extends Extension
         return [
             'comparison_expected' => $comparisonFailure->getExpectedAsString(),
             'comparison_actual'   => $comparisonFailure->getActualAsString(),
-            'comparison_diff'     => $comparisonFailure->getDiff(),
+            'comparison_diff'     => trim($comparisonFailure->getDiff()),
         ];
     }
 
