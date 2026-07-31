@@ -31,7 +31,7 @@ final class HintGenerator
             $hints['assertion'] = 'Assertion mismatch detected; compare expected and actual values at the top non-vendor frame.';
         }
 
-        if (str_contains($class, 'TypeError') || str_contains($class, 'ArgumentCountError') || str_contains($class, 'Error')) {
+        if (str_contains($class, 'Error')) {
             $hints['runtime'] = 'Runtime/type issue detected; verify argument types and nullability at the top frame.';
         }
 

@@ -19,12 +19,10 @@
   "require-dev": {
     "codeception/module-asserts": "^3.3",
     "friendsofphp/php-cs-fixer": "^3.95.18",
-    "mockery/mockery": "^1.6.12",
     "phpstan/extension-installer": "^1.4.3",
     "phpstan/phpstan": "^2.2.7",
     "phpstan/phpstan-webmozart-assert": "^2.0.0",
-    "roave/security-advisories": "dev-latest",
-    "symfony/var-dumper": "^6.4 || ^7.4.15 || ^8.0"
+    "roave/security-advisories": "dev-latest"
   },
   "autoload": {
     "psr-4": {

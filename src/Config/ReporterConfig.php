@@ -184,18 +184,8 @@ final class ReporterConfig
 
     private static function isAbsolutePath(string $path): bool
     {
-        if ('' === $path) {
-            return false;
-        }
-
-        if ('/' === $path[0]) {
-            return true;
-        }
-
-        if (str_starts_with($path, '\\\\')) {
-            return true;
-        }
-
-        return 1 === preg_match('/^[A-Za-z]:[\\\\\/]/', $path);
+        return str_starts_with($path, '/')
+            || str_starts_with($path, '\\\\')
+            || 1 === preg_match('/^[A-Za-z]:[\\\\\/]/', $path);
     }
 }

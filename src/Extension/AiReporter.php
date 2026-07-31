@@ -15,25 +15,27 @@ use Codeception\Extension;
 use Codeception\ResultAggregator;
 use Codeception\Test\Descriptor;
 use DateTimeImmutable;
+use function dirname;
 use function explode;
+use function file_put_contents;
 use function in_array;
 use InvalidArgumentException;
+use function is_dir;
 use function is_scalar;
 use function json_encode;
+use function mkdir;
 use PHPUnit\Framework\ExpectationFailedException;
+use RuntimeException;
 use function sprintf;
 use Throwable;
 use Webmozart\Assert\Assert;
 use WebProject\Codeception\Module\AiReporter\Config\ReporterConfig;
-use WebProject\Codeception\Module\AiReporter\Report\FilesystemWriter;
 use WebProject\Codeception\Module\AiReporter\Report\HintGenerator;
-use WebProject\Codeception\Module\AiReporter\Report\JsonReportFormatter;
 use WebProject\Codeception\Module\AiReporter\Report\PathNormalizer;
 use WebProject\Codeception\Module\AiReporter\Report\ScenarioExtractor;
 use WebProject\Codeception\Module\AiReporter\Report\TextReportFormatter;
 use WebProject\Codeception\Module\AiReporter\Report\TraceNormalizer;
 use WebProject\Codeception\Module\AiReporter\Util\ConsoleText;
-use WebProject\Codeception\Module\AiReporter\Util\TraceFrameProcessor;
 
 /**
  * @phpstan-import-type AiReport from \WebProject\Codeception\Module\AiReporter\Report\ReportTypes
@@ -44,6 +46,8 @@ use WebProject\Codeception\Module\AiReporter\Util\TraceFrameProcessor;
  */
 final class AiReporter extends Extension
 {
+    private const JSON_FLAGS = JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR;
+
     /**
      * @var array<string, string>
      */
@@ -85,15 +89,9 @@ final class AiReporter extends Extension
 
     private ScenarioExtractor $scenarioExtractor;
 
-    private TraceFrameProcessor $traceFrameProcessor;
-
     private HintGenerator $hintGenerator;
 
-    private JsonReportFormatter $jsonFormatter;
-
     private TextReportFormatter $textFormatter;
-
-    private FilesystemWriter $writer;
 
     private ConsoleText $consoleText;
 
@@ -116,15 +114,12 @@ final class AiReporter extends Extension
             projectRoot: $this->getRootDir(),
             compactPaths: $this->runtimeConfig->compactPaths(),
         );
-        $this->traceNormalizer     = new TraceNormalizer($this->pathNormalizer, $this->runtimeConfig->maxFrames());
-        $this->scenarioExtractor   = new ScenarioExtractor($this->pathNormalizer);
-        $this->traceFrameProcessor = new TraceFrameProcessor($this->pathNormalizer, $this->runtimeConfig->maxFrames());
-        $this->hintGenerator       = new HintGenerator();
-        $this->jsonFormatter       = new JsonReportFormatter();
-        $this->textFormatter       = new TextReportFormatter();
-        $this->writer              = new FilesystemWriter();
-        $this->consoleText         = new ConsoleText();
-        $this->startedAt           = microtime(true);
+        $this->traceNormalizer   = new TraceNormalizer($this->pathNormalizer, $this->runtimeConfig->maxFrames());
+        $this->scenarioExtractor = new ScenarioExtractor($this->pathNormalizer);
+        $this->hintGenerator     = new HintGenerator();
+        $this->textFormatter     = new TextReportFormatter();
+        $this->consoleText       = new ConsoleText();
+        $this->startedAt         = microtime(true);
     }
 
     public function beforeSuite(SuiteEvent $event): void
@@ -168,23 +163,38 @@ final class AiReporter extends Extension
         $outputDir = $this->runtimeConfig->outputDir();
 
         if ($this->runtimeConfig->wantsJson()) {
-            $jsonPath = $outputDir . '/ai-report.json';
-            try {
-                $this->writer->write($jsonPath, $this->jsonFormatter->format($report));
-                $this->writeln(sprintf('- <bold>AI JSON</bold> report generated in <comment>file://%s</comment>', $jsonPath));
-            } catch (Throwable $e) {
-                $this->logReportWriteFailure('AI JSON', $e);
-            }
+            $this->writeReport(
+                'AI JSON',
+                $outputDir . '/ai-report.json',
+                static fn (): string => json_encode($report, self::JSON_FLAGS) . "\n",
+            );
         }
 
         if ($this->runtimeConfig->wantsText()) {
-            $textPath = $outputDir . '/ai-report.txt';
-            try {
-                $this->writer->write($textPath, $this->textFormatter->format($report));
-                $this->writeln(sprintf('- <bold>AI TEXT</bold> report generated in <comment>file://%s</comment>', $textPath));
-            } catch (Throwable $e) {
-                $this->logReportWriteFailure('AI TEXT', $e);
+            $this->writeReport(
+                'AI TEXT',
+                $outputDir . '/ai-report.txt',
+                fn (): string => $this->textFormatter->format($report),
+            );
+        }
+    }
+
+    /** @param callable(): string $render */
+    private function writeReport(string $label, string $path, callable $render): void
+    {
+        try {
+            $directory = dirname($path);
+            if (!is_dir($directory) && !mkdir($directory, 0o775, true) && !is_dir($directory)) {
+                throw new RuntimeException(sprintf('Unable to create output directory: %s', $directory));
             }
+
+            if (false === file_put_contents($path, $render())) {
+                throw new RuntimeException(sprintf('Unable to write report file: %s', $path));
+            }
+
+            $this->writeln(sprintf('- <bold>%s</bold> report generated in <comment>file://%s</comment>', $label, $path));
+        } catch (Throwable $e) {
+            $this->logReportWriteFailure($label, $e);
         }
     }
 
@@ -195,7 +205,6 @@ final class AiReporter extends Extension
         $throwable = $event->getFail();
 
         $trace         = $this->traceNormalizer->normalize($throwable);
-        $trace         = $this->traceFrameProcessor->prepare($throwable, $trace);
         $scenarioSteps = $this->runtimeConfig->includeSteps()
             ? $this->scenarioExtractor->extract($test, $this->runtimeConfig->maxFrames())
             : [];
@@ -270,7 +279,7 @@ final class AiReporter extends Extension
 
         $traceLines = [];
         foreach (array_slice($trace, 0, $this->runtimeConfig->maxFrames()) as $index => $frame) {
-            $traceLines[] = sprintf('#%d %s', $index + 1, $this->consoleText->escape($this->traceFrameProcessor->formatFrame($frame)));
+            $traceLines[] = sprintf('#%d %s', $index + 1, $this->consoleText->escape($this->traceNormalizer->formatFrame($frame)));
         }
         $this->printSection('Trace', $traceLines);
 
@@ -382,15 +391,15 @@ final class AiReporter extends Extension
     {
         /** @var SummaryInfo $summary */
         $summary = [
-            'tests'          => (int) max(0, $result->testCount()),
-            'successful'     => (int) max(0, $result->successfulCount()),
-            'failures'       => (int) max(0, $result->failureCount()),
-            'errors'         => (int) max(0, $result->errorCount()),
-            'warnings'       => (int) max(0, $result->warningCount()),
-            'skipped'        => (int) max(0, $result->skippedCount()),
-            'incomplete'     => (int) max(0, $result->incompleteCount()),
-            'useless'        => (int) max(0, $result->uselessCount()),
-            'assertions'     => (int) max(0, $result->assertionCount()),
+            'tests'          => $result->testCount(),
+            'successful'     => $result->successfulCount(),
+            'failures'       => $result->failureCount(),
+            'errors'         => $result->errorCount(),
+            'warnings'       => $result->warningCount(),
+            'skipped'        => $result->skippedCount(),
+            'incomplete'     => $result->incompleteCount(),
+            'useless'        => $result->uselessCount(),
+            'assertions'     => $result->assertionCount(),
             'successful_run' => $result->wasSuccessful(),
         ];
 

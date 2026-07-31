@@ -14,14 +14,11 @@ use function strtolower;
 
 final class PathNormalizer
 {
-    private readonly string $normalizedRoot;
     private readonly string $normalizedRootLower;
 
     public function __construct(string $projectRoot, private readonly bool $compactPaths)
     {
-        $normalized                = str_replace('\\', '/', rtrim($projectRoot, '/\\'));
-        $this->normalizedRoot      = $normalized . '/';
-        $this->normalizedRootLower = strtolower($this->normalizedRoot);
+        $this->normalizedRootLower = strtolower(str_replace('\\', '/', rtrim($projectRoot, '/\\')) . '/');
     }
 
     /**
@@ -42,8 +39,8 @@ final class PathNormalizer
             return $normalized;
         }
 
-        if ($this->startsWithProjectRoot($normalized)) {
-            return ltrim((string) substr($normalized, strlen($this->normalizedRoot)), '/');
+        if (str_starts_with(strtolower($normalized), $this->normalizedRootLower)) {
+            return ltrim((string) substr($normalized, strlen($this->normalizedRootLower)), '/');
         }
 
         return $normalized;
@@ -58,11 +55,5 @@ final class PathNormalizer
         $normalized = strtolower(str_replace('\\', '/', $path));
 
         return str_contains($normalized, '/vendor/');
-    }
-
-    private function startsWithProjectRoot(string $path): bool
-    {
-        return str_starts_with($path, $this->normalizedRoot)
-            || str_starts_with(strtolower($path), $this->normalizedRootLower);
     }
 }
