@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WebProject\Codeception\Module\AiReporter\Tests\Unit\Extension;
 
+use function chr;
 use Codeception\Event\FailEvent;
 use Codeception\Event\PrintResultEvent;
 use Codeception\ResultAggregator;
@@ -11,13 +12,17 @@ use Codeception\Test\Unit;
 use function file_get_contents;
 use function is_dir;
 use function is_file;
+use function json_decode;
 use PHPUnit\Framework\AssertionFailedError;
+use PHPUnit\Framework\ExpectationFailedException;
 use ReflectionClass;
 use ReflectionProperty;
 use function rmdir;
 use RuntimeException;
+use SebastianBergmann\Comparator\ComparisonFailure;
 use function sys_get_temp_dir;
 use function tempnam;
+use Throwable;
 use function uniqid;
 use function unlink;
 use WebProject\Codeception\Module\AiReporter\Extension\AiReporter;
@@ -136,6 +141,53 @@ final class AiReporterTest extends Unit
 
     public function testAfterResultWritesJsonAndTextReportsCapturedFromFailure(): void
     {
+        $reports = $this->captureReports(new AssertionFailedError('expected truthy'));
+
+        self::assertStringContainsString('"full_name"', $reports['json']);
+        self::assertStringContainsString('PHPUnit\\\\Framework\\\\AssertionFailedError', $reports['json']);
+        self::assertStringContainsString('expected truthy', $reports['json']);
+        self::assertStringContainsString('expected truthy', $reports['text']);
+    }
+
+    public function testJsonReportSubstitutesInvalidUtf8InsteadOfFailing(): void
+    {
+        $reports = $this->captureReports(new RuntimeException('bad:' . chr(177)));
+
+        self::assertStringContainsString('bad:', $reports['json']);
+        self::assertStringContainsString('"failures"', $reports['json']);
+    }
+
+    public function testJsonReportIncludesComparisonFieldsWhenPresent(): void
+    {
+        $reports = $this->captureReports(new ExpectationFailedException(
+            'Failed asserting that two strings are identical.',
+            new ComparisonFailure('hello', 'world', "'hello'", "'world'"),
+        ));
+
+        $decoded = json_decode($reports['json'], true);
+        self::assertIsArray($decoded);
+
+        /** @var array{failures: list<array{exception: array{comparison_expected: string, comparison_actual: string, comparison_diff: string}}>} $decoded */
+        $exception = $decoded['failures'][0]['exception'];
+
+        self::assertSame("'hello'", $exception['comparison_expected']);
+        self::assertSame("'world'", $exception['comparison_actual']);
+        self::assertStringStartsWith('--- Expected', $exception['comparison_diff']);
+        self::assertSame($exception['comparison_diff'], trim($exception['comparison_diff']));
+    }
+
+    public function testJsonReportEncodesEmptyArtifactsAsObject(): void
+    {
+        $reports = $this->captureReports(new RuntimeException('boom'));
+
+        self::assertStringContainsString('"artifacts": {}', $reports['json']);
+    }
+
+    /**
+     * @return array{json: string, text: string}
+     */
+    private function captureReports(Throwable $fail): array
+    {
         $outputDir = sys_get_temp_dir() . '/' . uniqid('ai-reporter-out-', true);
 
         $reporter = new AiReporter(
@@ -147,12 +199,7 @@ final class AiReporterTest extends Unit
         );
 
         try {
-            $reporter->onFailure(new FailEvent(
-                $this->makeStubTest('LoginCest:tryToLogIn'),
-                new AssertionFailedError('expected truthy'),
-                0.01,
-            ));
-
+            $reporter->onFailure(new FailEvent($this->makeStubTest('LoginCest:tryToLogIn'), $fail, 0.01));
             $reporter->afterResult(new PrintResultEvent(new ResultAggregator()));
 
             $jsonPath = $outputDir . '/ai-report.json';
@@ -161,13 +208,10 @@ final class AiReporterTest extends Unit
             self::assertFileExists($jsonPath);
             self::assertFileExists($textPath);
 
-            $json = (string) file_get_contents($jsonPath);
-            self::assertStringContainsString('"full_name"', $json);
-            self::assertStringContainsString('PHPUnit\\\\Framework\\\\AssertionFailedError', $json);
-            self::assertStringContainsString('expected truthy', $json);
-
-            $textReport = (string) file_get_contents($textPath);
-            self::assertStringContainsString('expected truthy', $textReport);
+            return [
+                'json' => (string) file_get_contents($jsonPath),
+                'text' => (string) file_get_contents($textPath),
+            ];
         } finally {
             foreach (['ai-report.json', 'ai-report.txt'] as $name) {
                 $path = $outputDir . '/' . $name;

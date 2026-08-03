@@ -15,35 +15,41 @@ use Codeception\Extension;
 use Codeception\ResultAggregator;
 use Codeception\Test\Descriptor;
 use DateTimeImmutable;
+use function dirname;
 use function explode;
+use function file_put_contents;
 use function in_array;
 use InvalidArgumentException;
+use function is_dir;
 use function is_scalar;
 use function json_encode;
+use function mkdir;
 use PHPUnit\Framework\ExpectationFailedException;
+use RuntimeException;
 use function sprintf;
+use stdClass;
 use Throwable;
 use Webmozart\Assert\Assert;
 use WebProject\Codeception\Module\AiReporter\Config\ReporterConfig;
-use WebProject\Codeception\Module\AiReporter\Report\FilesystemWriter;
-use WebProject\Codeception\Module\AiReporter\Report\HintGenerator;
-use WebProject\Codeception\Module\AiReporter\Report\JsonReportFormatter;
 use WebProject\Codeception\Module\AiReporter\Report\PathNormalizer;
 use WebProject\Codeception\Module\AiReporter\Report\ScenarioExtractor;
+use WebProject\Codeception\Module\AiReporter\Report\SourceExcerpt;
 use WebProject\Codeception\Module\AiReporter\Report\TextReportFormatter;
 use WebProject\Codeception\Module\AiReporter\Report\TraceNormalizer;
 use WebProject\Codeception\Module\AiReporter\Util\ConsoleText;
-use WebProject\Codeception\Module\AiReporter\Util\TraceFrameProcessor;
 
 /**
  * @phpstan-import-type AiReport from \WebProject\Codeception\Module\AiReporter\Report\ReportTypes
  * @phpstan-import-type Failure from \WebProject\Codeception\Module\AiReporter\Report\ReportTypes
  * @phpstan-import-type PreviousException from \WebProject\Codeception\Module\AiReporter\Report\ReportTypes
  * @phpstan-import-type RawConfig from \WebProject\Codeception\Module\AiReporter\Config\ReporterConfig
+ * @phpstan-import-type SourceContext from \WebProject\Codeception\Module\AiReporter\Report\ReportTypes
  * @phpstan-import-type SummaryInfo from \WebProject\Codeception\Module\AiReporter\Report\ReportTypes
  */
 final class AiReporter extends Extension
 {
+    private const JSON_FLAGS = JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR;
+
     /**
      * @var array<string, string>
      */
@@ -62,12 +68,13 @@ final class AiReporter extends Extension
      * @var RawConfig
      */
     protected array $config = [
-        'format'            => 'both',
+        'format'            => 'json',
         'output'            => '',
         'max_frames'        => 8,
         'include_steps'     => true,
         'include_artifacts' => true,
         'compact_paths'     => true,
+        'context_lines'     => 4,
     ];
 
     /** @var list<Failure> */
@@ -85,15 +92,9 @@ final class AiReporter extends Extension
 
     private ScenarioExtractor $scenarioExtractor;
 
-    private TraceFrameProcessor $traceFrameProcessor;
-
-    private HintGenerator $hintGenerator;
-
-    private JsonReportFormatter $jsonFormatter;
+    private SourceExcerpt $sourceExcerpt;
 
     private TextReportFormatter $textFormatter;
-
-    private FilesystemWriter $writer;
 
     private ConsoleText $consoleText;
 
@@ -116,15 +117,12 @@ final class AiReporter extends Extension
             projectRoot: $this->getRootDir(),
             compactPaths: $this->runtimeConfig->compactPaths(),
         );
-        $this->traceNormalizer     = new TraceNormalizer($this->pathNormalizer, $this->runtimeConfig->maxFrames());
-        $this->scenarioExtractor   = new ScenarioExtractor($this->pathNormalizer);
-        $this->traceFrameProcessor = new TraceFrameProcessor($this->pathNormalizer, $this->runtimeConfig->maxFrames());
-        $this->hintGenerator       = new HintGenerator();
-        $this->jsonFormatter       = new JsonReportFormatter();
-        $this->textFormatter       = new TextReportFormatter();
-        $this->writer              = new FilesystemWriter();
-        $this->consoleText         = new ConsoleText();
-        $this->startedAt           = microtime(true);
+        $this->traceNormalizer   = new TraceNormalizer($this->pathNormalizer, $this->runtimeConfig->maxFrames());
+        $this->scenarioExtractor = new ScenarioExtractor($this->pathNormalizer);
+        $this->sourceExcerpt     = new SourceExcerpt($this->pathNormalizer, $this->getRootDir(), $this->runtimeConfig->contextLines());
+        $this->textFormatter     = new TextReportFormatter();
+        $this->consoleText       = new ConsoleText();
+        $this->startedAt         = microtime(true);
     }
 
     public function beforeSuite(SuiteEvent $event): void
@@ -168,23 +166,66 @@ final class AiReporter extends Extension
         $outputDir = $this->runtimeConfig->outputDir();
 
         if ($this->runtimeConfig->wantsJson()) {
-            $jsonPath = $outputDir . '/ai-report.json';
-            try {
-                $this->writer->write($jsonPath, $this->jsonFormatter->format($report));
-                $this->writeln(sprintf('- <bold>AI JSON</bold> report generated in <comment>file://%s</comment>', $jsonPath));
-            } catch (Throwable $e) {
-                $this->logReportWriteFailure('AI JSON', $e);
-            }
+            $this->writeReport(
+                'AI JSON',
+                $outputDir . '/ai-report.json',
+                static fn (): string => json_encode(self::encodable($report), self::JSON_FLAGS) . "\n",
+            );
         }
 
         if ($this->runtimeConfig->wantsText()) {
-            $textPath = $outputDir . '/ai-report.txt';
-            try {
-                $this->writer->write($textPath, $this->textFormatter->format($report));
-                $this->writeln(sprintf('- <bold>AI TEXT</bold> report generated in <comment>file://%s</comment>', $textPath));
-            } catch (Throwable $e) {
-                $this->logReportWriteFailure('AI TEXT', $e);
+            $this->writeReport(
+                'AI TEXT',
+                $outputDir . '/ai-report.txt',
+                fn (): string => $this->textFormatter->format($report),
+            );
+        }
+    }
+
+    /**
+     * The schema declares `artifacts` as a map, but an empty PHP array encodes
+     * as `[]`. Cast it so every failure keeps the same JSON shape.
+     *
+     * @param AiReport $report
+     *
+     * @return array<string, mixed>
+     */
+    private static function encodable(array $report): array
+    {
+        $failures = [];
+        foreach ($report['failures'] as $failure) {
+            /** @var array<string, mixed> $encoded */
+            $encoded = $failure;
+            if ([] === $failure['artifacts']) {
+                $encoded['artifacts'] = new stdClass();
             }
+
+            $failures[] = $encoded;
+        }
+
+        return [
+            'run'      => $report['run'],
+            'summary'  => $report['summary'],
+            'failures' => $failures,
+        ];
+    }
+
+    /** @param callable(): string $render */
+    private function writeReport(string $label, string $path, callable $render): void
+    {
+        try {
+            $directory = dirname($path);
+            if (!is_dir($directory) && !mkdir($directory, 0o775, true) && !is_dir($directory)) {
+                throw new RuntimeException(sprintf('Unable to create output directory: %s', $directory));
+            }
+
+            if (false === file_put_contents($path, $render())) {
+                throw new RuntimeException(sprintf('Unable to write report file: %s', $path));
+            }
+
+            $this->writeln(sprintf('- <bold>%s</bold> report generated in <comment>file://%s</comment>', $label, $path));
+        } catch (Throwable $e) {
+            $this->logReportWriteFailure($label, $e);
         }
     }
 
@@ -195,12 +236,9 @@ final class AiReporter extends Extension
         $throwable = $event->getFail();
 
         $trace         = $this->traceNormalizer->normalize($throwable);
-        $trace         = $this->traceFrameProcessor->prepare($throwable, $trace);
         $scenarioSteps = $this->runtimeConfig->includeSteps()
             ? $this->scenarioExtractor->extract($test, $this->runtimeConfig->maxFrames())
             : [];
-
-        $hints = $this->hintGenerator->generate($throwable, $trace, $scenarioSteps);
 
         $exception = [
             'class'    => $throwable::class,
@@ -215,23 +253,26 @@ final class AiReporter extends Extension
             $exception['comparison_diff']     = $comparison['comparison_diff'];
         }
 
+        $fullName = Descriptor::getTestFullName($test);
+
         $failure = [
             'status' => $status,
             'suite'  => $this->currentSuite,
             'test'   => [
                 'display_name' => Descriptor::getTestAsString($test),
                 'signature'    => $test->getSignature(),
-                'full_name'    => Descriptor::getTestFullName($test),
+                'full_name'    => $fullName,
                 'file'         => $this->pathNormalizer->normalize($test->getFileName()),
             ],
-            'time_seconds'   => $event->getTime(),
+            'rerun'          => 'vendor/bin/codecept run ' . $fullName,
+            'time_seconds'   => round($event->getTime(), 6),
             'exception'      => $exception,
             'scenario_steps' => $scenarioSteps,
             'trace'          => $trace,
+            'source_context' => $this->sourceExcerpt->forTrace($trace),
             'artifacts'      => $this->runtimeConfig->includeArtifacts()
                 ? $this->normalizeArtifacts($test->getMetadata()->getReports())
                 : [],
-            'hints' => $hints,
         ];
 
         /** @var Failure $failure */
@@ -253,14 +294,24 @@ final class AiReporter extends Extension
 
         $exception = $failure['exception'];
         $trace     = $failure['trace'];
-        $hints     = $failure['hints'];
         $steps     = $failure['scenario_steps'];
         $artifacts = $failure['artifacts'];
 
         $this->writeln('  <comment>AI Context</comment>');
         $this->writeln(sprintf('    Test failed: %s', $this->consoleText->escape($failure['test']['full_name'])));
+        $this->writeln(sprintf('    Rerun: %s', $this->consoleText->escape($failure['rerun'])));
         $this->writeln(sprintf('    Exception: %s', $this->consoleText->escape($exception['class'])));
         $this->writeln(sprintf('    Message: %s', $this->consoleText->escape($this->consoleText->truncate($exception['message']))));
+
+        $causeLines = [];
+        foreach ($exception['previous'] as $previous) {
+            $causeLines[] = sprintf(
+                '- %s: %s',
+                $this->consoleText->escape($previous['class']),
+                $this->consoleText->escape($this->consoleText->truncate($previous['message'])),
+            );
+        }
+        $this->printSection('Caused by', $causeLines);
 
         $diff = $exception['comparison_diff'] ?? '';
         $this->printSection('Diff', '' === $diff ? [] : array_map(
@@ -270,9 +321,11 @@ final class AiReporter extends Extension
 
         $traceLines = [];
         foreach (array_slice($trace, 0, $this->runtimeConfig->maxFrames()) as $index => $frame) {
-            $traceLines[] = sprintf('#%d %s', $index + 1, $this->consoleText->escape($this->traceFrameProcessor->formatFrame($frame)));
+            $traceLines[] = sprintf('#%d %s', $index + 1, $this->consoleText->escape($this->traceNormalizer->formatFrame($frame)));
         }
         $this->printSection('Trace', $traceLines);
+
+        $this->printSourceContext($failure['source_context']);
 
         $stepLines = [];
         foreach (array_slice($steps, 0, 2) as $step) {
@@ -285,12 +338,27 @@ final class AiReporter extends Extension
             $artifactLines[] = sprintf('- %s: %s', $this->consoleText->escape($type), $this->consoleText->escape($path));
         }
         $this->printSection('Artifacts', $artifactLines);
+    }
 
-        $hintLines = [];
-        foreach (array_slice($hints, 0, 3) as $hint) {
-            $hintLines[] = sprintf('- %s', $this->consoleText->escape($hint));
+    /** @param SourceContext|null $context */
+    private function printSourceContext(?array $context): void
+    {
+        if (null === $context) {
+            return;
         }
-        $this->printSection('Hints', $hintLines);
+
+        $lines = [];
+        foreach ($context['lines'] as $offset => $code) {
+            $number  = $context['start_line'] + $offset;
+            $lines[] = sprintf(
+                '%s %4d | %s',
+                $number === $context['line'] ? '>' : ' ',
+                $number,
+                $this->consoleText->escape($code),
+            );
+        }
+
+        $this->printSection(sprintf('Source %s:%d', $context['file'], $context['line']), $lines);
     }
 
     /**
@@ -356,7 +424,7 @@ final class AiReporter extends Extension
         return [
             'comparison_expected' => $comparisonFailure->getExpectedAsString(),
             'comparison_actual'   => $comparisonFailure->getActualAsString(),
-            'comparison_diff'     => $comparisonFailure->getDiff(),
+            'comparison_diff'     => trim($comparisonFailure->getDiff()),
         ];
     }
 
@@ -382,15 +450,15 @@ final class AiReporter extends Extension
     {
         /** @var SummaryInfo $summary */
         $summary = [
-            'tests'          => (int) max(0, $result->testCount()),
-            'successful'     => (int) max(0, $result->successfulCount()),
-            'failures'       => (int) max(0, $result->failureCount()),
-            'errors'         => (int) max(0, $result->errorCount()),
-            'warnings'       => (int) max(0, $result->warningCount()),
-            'skipped'        => (int) max(0, $result->skippedCount()),
-            'incomplete'     => (int) max(0, $result->incompleteCount()),
-            'useless'        => (int) max(0, $result->uselessCount()),
-            'assertions'     => (int) max(0, $result->assertionCount()),
+            'tests'          => $result->testCount(),
+            'successful'     => $result->successfulCount(),
+            'failures'       => $result->failureCount(),
+            'errors'         => $result->errorCount(),
+            'warnings'       => $result->warningCount(),
+            'skipped'        => $result->skippedCount(),
+            'incomplete'     => $result->incompleteCount(),
+            'useless'        => $result->uselessCount(),
+            'assertions'     => $result->assertionCount(),
             'successful_run' => $result->wasSuccessful(),
         ];
 

@@ -28,7 +28,9 @@ final class PathNormalizerTest extends Unit
         $normalizer = PathNormalizerFactory::make();
 
         self::assertTrue($normalizer->isVendorPath('/repo/project/vendor/package/file.php'));
+        self::assertTrue($normalizer->isVendorPath('vendor/package/file.php'));
         self::assertFalse($normalizer->isVendorPath('/repo/project/src/file.php'));
+        self::assertFalse($normalizer->isVendorPath('src/vendorish/file.php'));
     }
 
     public function testCompactsWindowsPathAndNormalizesSeparators(): void

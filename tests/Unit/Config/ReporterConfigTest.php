@@ -15,12 +15,20 @@ final class ReporterConfigTest extends Unit
         $config = ReporterConfig::fromArray([], '/tmp/default-output', '/repo/project');
 
         self::assertTrue($config->wantsJson());
-        self::assertTrue($config->wantsText());
+        self::assertFalse($config->wantsText());
         self::assertSame('/tmp/default-output', $config->outputDir());
         self::assertSame(8, $config->maxFrames());
         self::assertTrue($config->includeSteps());
         self::assertTrue($config->includeArtifacts());
         self::assertTrue($config->compactPaths());
+        self::assertSame(4, $config->contextLines());
+    }
+
+    public function testContextLinesCanBeDisabled(): void
+    {
+        $config = ReporterConfig::fromArray(['context_lines' => 0], '/tmp/default-output', '/repo/project');
+
+        self::assertSame(0, $config->contextLines());
     }
 
     public function testRelativeOutputIsResolvedAgainstProjectRoot(): void
