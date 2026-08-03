@@ -3,6 +3,37 @@
 All notable changes to this project will be documented in this file. See
 [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [2.0.0](https://github.com/WebProject-xyz/codeception-module-ai-reporter/compare/1.2.2...2.0.0) (2026-08-03)
+
+### ⚠ BREAKING CHANGES
+
+* **report:** the `hints` field is gone, along with HintGenerator. Every
+hint restated the exception class or the diff printed directly above it, so
+they cost two lines per failure and carried no information. `format` defaults
+to `json` instead of `both`, so `ai-report.txt` is no longer written unless
+`format: text` or `format: both` is configured.
+
+* fix(report): skip vendor frames in source context, bound tiny truncate limits
+
+Two issues from review, both reproduced first:
+
+- `SourceExcerpt::forTrace()` only skipped frames starting with `vendor/`, so
+  with `compact_paths: false` an absolute `/project/vendor/...` frame passed the
+  filter and the excerpt showed library source. It now reuses
+  `PathNormalizer::isVendorPath()`, which in turn had the mirror-image gap: it
+  matched `/vendor/` only, missing already-normalized relative `vendor/...`
+  paths. Both forms occur — raw trace frames are absolute, normalized ones are
+  project-relative — so the shared rule now covers both.
+- `ConsoleText::truncate()` returned strings longer than the limit for
+  `$maxLength` below 5: the tail length rounded down to zero, and
+  `mb_substr($message, -0)` returns the whole remaining string rather than
+  nothing. A limit of 1 turned a 10-character message into 21 characters. Short
+  limits now cut plainly, without an ellipsis there is no room for.
+
+### Features
+
+* **report:** trim the module, rebuild the failure output around what debugging actually needs ([#21](https://github.com/WebProject-xyz/codeception-module-ai-reporter/issues/21)) ([b38a988](https://github.com/WebProject-xyz/codeception-module-ai-reporter/commit/b38a988401caa1c1660bb533fb4e83997a836f7b))
+
 ## [1.2.2](https://github.com/WebProject-xyz/codeception-module-ai-reporter/compare/1.2.1...1.2.2) (2026-07-31)
 
 ### Bug Fixes
