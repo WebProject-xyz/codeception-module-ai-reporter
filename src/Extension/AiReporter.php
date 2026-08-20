@@ -13,7 +13,6 @@ use Codeception\Events;
 use Codeception\Exception\ExtensionException;
 use Codeception\Extension;
 use Codeception\ResultAggregator;
-use Codeception\Test\Descriptor;
 use DateTimeImmutable;
 use function dirname;
 use function explode;
@@ -21,16 +20,15 @@ use function file_put_contents;
 use function in_array;
 use InvalidArgumentException;
 use function is_dir;
-use function is_scalar;
 use function json_encode;
 use function mkdir;
-use PHPUnit\Framework\ExpectationFailedException;
 use RuntimeException;
 use function sprintf;
 use stdClass;
 use Throwable;
 use Webmozart\Assert\Assert;
 use WebProject\Codeception\Module\AiReporter\Config\ReporterConfig;
+use WebProject\Codeception\Module\AiReporter\Report\FailureExtractor;
 use WebProject\Codeception\Module\AiReporter\Report\PathNormalizer;
 use WebProject\Codeception\Module\AiReporter\Report\ScenarioExtractor;
 use WebProject\Codeception\Module\AiReporter\Report\SourceExcerpt;
@@ -94,6 +92,8 @@ final class AiReporter extends Extension
 
     private SourceExcerpt $sourceExcerpt;
 
+    private FailureExtractor $failureExtractor;
+
     private TextReportFormatter $textFormatter;
 
     private ConsoleText $consoleText;
@@ -120,6 +120,13 @@ final class AiReporter extends Extension
         $this->traceNormalizer   = new TraceNormalizer($this->pathNormalizer, $this->runtimeConfig->maxFrames());
         $this->scenarioExtractor = new ScenarioExtractor($this->pathNormalizer);
         $this->sourceExcerpt     = new SourceExcerpt($this->pathNormalizer, $this->getRootDir(), $this->runtimeConfig->contextLines());
+        $this->failureExtractor  = new FailureExtractor(
+            $this->runtimeConfig,
+            $this->pathNormalizer,
+            $this->traceNormalizer,
+            $this->scenarioExtractor,
+            $this->sourceExcerpt,
+        );
         $this->textFormatter     = new TextReportFormatter();
         $this->consoleText       = new ConsoleText();
         $this->startedAt         = microtime(true);
@@ -232,50 +239,8 @@ final class AiReporter extends Extension
     /** @param non-empty-string $status */
     private function captureFailure(string $status, FailEvent $event): void
     {
-        $test      = $event->getTest();
-        $throwable = $event->getFail();
+        $failure = $this->failureExtractor->extract($status, $event, $this->currentSuite);
 
-        $trace         = $this->traceNormalizer->normalize($throwable);
-        $scenarioSteps = $this->runtimeConfig->includeSteps()
-            ? $this->scenarioExtractor->extract($test, $this->runtimeConfig->maxFrames())
-            : [];
-
-        $exception = [
-            'class'    => $throwable::class,
-            'message'  => $throwable->getMessage(),
-            'previous' => $this->extractPreviousExceptions($throwable),
-        ];
-
-        $comparison = $this->extractComparisonFailure($throwable);
-        if (null !== $comparison) {
-            $exception['comparison_expected'] = $comparison['comparison_expected'];
-            $exception['comparison_actual']   = $comparison['comparison_actual'];
-            $exception['comparison_diff']     = $comparison['comparison_diff'];
-        }
-
-        $fullName = Descriptor::getTestFullName($test);
-
-        $failure = [
-            'status' => $status,
-            'suite'  => $this->currentSuite,
-            'test'   => [
-                'display_name' => Descriptor::getTestAsString($test),
-                'signature'    => $test->getSignature(),
-                'full_name'    => $fullName,
-                'file'         => $this->pathNormalizer->normalize($test->getFileName()),
-            ],
-            'rerun'          => 'vendor/bin/codecept run ' . $fullName,
-            'time_seconds'   => round($event->getTime(), 6),
-            'exception'      => $exception,
-            'scenario_steps' => $scenarioSteps,
-            'trace'          => $trace,
-            'source_context' => $this->sourceExcerpt->forTrace($trace),
-            'artifacts'      => $this->runtimeConfig->includeArtifacts()
-                ? $this->normalizeArtifacts($test->getMetadata()->getReports())
-                : [],
-        ];
-
-        /** @var Failure $failure */
         $this->failures[] = $failure;
         $this->printInlineContext($failure);
     }
@@ -390,59 +355,6 @@ final class AiReporter extends Extension
                 $this->consoleText->escape($this->consoleText->truncate($exception->getMessage()))
             )
         );
-    }
-
-    /** @return list<PreviousException> */
-    private function extractPreviousExceptions(Throwable $throwable): array
-    {
-        $previous = [];
-        $cursor   = $throwable->getPrevious();
-
-        while (null !== $cursor) {
-            $previous[] = [
-                'class'   => $cursor::class,
-                'message' => $cursor->getMessage(),
-            ];
-            $cursor = $cursor->getPrevious();
-        }
-
-        return $previous;
-    }
-
-    /** @return array{comparison_expected: string, comparison_actual: string, comparison_diff: string}|null */
-    private function extractComparisonFailure(Throwable $throwable): ?array
-    {
-        if (!$throwable instanceof ExpectationFailedException) {
-            return null;
-        }
-
-        $comparisonFailure = $throwable->getComparisonFailure();
-        if (null === $comparisonFailure) {
-            return null;
-        }
-
-        return [
-            'comparison_expected' => $comparisonFailure->getExpectedAsString(),
-            'comparison_actual'   => $comparisonFailure->getActualAsString(),
-            'comparison_diff'     => trim($comparisonFailure->getDiff()),
-        ];
-    }
-
-    /**
-     * @param array<array-key, mixed> $reports
-     *
-     * @return array<string, string>
-     */
-    private function normalizeArtifacts(array $reports): array
-    {
-        $normalized = [];
-        foreach ($reports as $type => $path) {
-            $normalized[(string) $type] = is_scalar($path)
-                ? $this->pathNormalizer->normalize((string) $path)
-                : (string) json_encode($path, JSON_INVALID_UTF8_SUBSTITUTE);
-        }
-
-        return $normalized;
     }
 
     /** @return AiReport */
