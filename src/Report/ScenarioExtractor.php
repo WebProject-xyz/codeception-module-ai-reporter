@@ -30,7 +30,7 @@ final class ScenarioExtractor
         $scenario = $test->getScenario();
         $steps    = [];
         foreach (array_reverse($scenario->getSteps()) as $step) {
-            $label = (string) $step;
+            $label = trim((string) $step);
             if ('' === $label) {
                 continue;
             }
