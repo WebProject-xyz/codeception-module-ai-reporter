@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace WebProject\Codeception\Module\AiReporter\Tests\Support;
 
 /**
- * Inherited Methods
+ * Inherited Methods.
+ *
  * @method void wantToTest(string $text)
  * @method void wantTo(string $text)
  */

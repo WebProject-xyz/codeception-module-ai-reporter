@@ -4,30 +4,31 @@ declare(strict_types=1);
 
 namespace WebProject\Codeception\Module\AiReporter\Tests\Unit\Extension;
 
-use function chr;
 use Codeception\Event\FailEvent;
 use Codeception\Event\PrintResultEvent;
 use Codeception\ResultAggregator;
 use Codeception\Test\Unit;
-use function file_get_contents;
-use function is_dir;
-use function is_file;
-use function json_decode;
 use PHPUnit\Framework\AssertionFailedError;
 use PHPUnit\Framework\ExpectationFailedException;
 use ReflectionClass;
 use ReflectionProperty;
-use function rmdir;
 use RuntimeException;
 use SebastianBergmann\Comparator\ComparisonFailure;
-use function sys_get_temp_dir;
-use function tempnam;
 use Throwable;
-use function uniqid;
-use function unlink;
 use WebProject\Codeception\Module\AiReporter\Extension\AiReporter;
 use WebProject\Codeception\Module\AiReporter\Tests\Support\Fixture\CapturingOutput;
 use WebProject\Codeception\Module\AiReporter\Tests\Support\Fixture\StubTest;
+
+use function chr;
+use function file_get_contents;
+use function is_dir;
+use function is_file;
+use function json_decode;
+use function rmdir;
+use function sys_get_temp_dir;
+use function tempnam;
+use function uniqid;
+use function unlink;
 
 final class AiReporterTest extends Unit
 {
