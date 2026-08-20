@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace WebProject\Codeception\Module\AiReporter\Extension;
 
-use function array_map;
-use function array_slice;
 use Codeception\Event\FailEvent;
 use Codeception\Event\PrintResultEvent;
 use Codeception\Event\SuiteEvent;
@@ -14,16 +12,8 @@ use Codeception\Exception\ExtensionException;
 use Codeception\Extension;
 use Codeception\ResultAggregator;
 use DateTimeImmutable;
-use function dirname;
-use function explode;
-use function file_put_contents;
-use function in_array;
 use InvalidArgumentException;
-use function is_dir;
-use function json_encode;
-use function mkdir;
 use RuntimeException;
-use function sprintf;
 use stdClass;
 use Throwable;
 use Webmozart\Assert\Assert;
@@ -35,6 +25,17 @@ use WebProject\Codeception\Module\AiReporter\Report\SourceExcerpt;
 use WebProject\Codeception\Module\AiReporter\Report\TextReportFormatter;
 use WebProject\Codeception\Module\AiReporter\Report\TraceNormalizer;
 use WebProject\Codeception\Module\AiReporter\Util\ConsoleText;
+
+use function array_map;
+use function array_slice;
+use function dirname;
+use function explode;
+use function file_put_contents;
+use function in_array;
+use function is_dir;
+use function json_encode;
+use function mkdir;
+use function sprintf;
 
 /**
  * @phpstan-import-type AiReport from \WebProject\Codeception\Module\AiReporter\Report\ReportTypes

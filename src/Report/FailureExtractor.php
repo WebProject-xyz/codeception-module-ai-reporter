@@ -6,14 +6,16 @@ namespace WebProject\Codeception\Module\AiReporter\Report;
 
 use Codeception\Event\FailEvent;
 use Codeception\Test\Descriptor;
+use PHPUnit\Framework\ExpectationFailedException;
+use Throwable;
+use WebProject\Codeception\Module\AiReporter\Config\ReporterConfig;
+
 use function is_scalar;
 use function json_encode;
-use const JSON_INVALID_UTF8_SUBSTITUTE;
-use PHPUnit\Framework\ExpectationFailedException;
 use function round;
-use Throwable;
 use function trim;
-use WebProject\Codeception\Module\AiReporter\Config\ReporterConfig;
+
+use const JSON_INVALID_UTF8_SUBSTITUTE;
 
 /**
  * @phpstan-import-type Failure from ReportTypes
