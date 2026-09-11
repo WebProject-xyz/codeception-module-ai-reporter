@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace WebProject\Codeception\Module\AiReporter\Tests\Unit\Report;
 
 use Codeception\Test\Unit;
-use function dirname;
 use WebProject\Codeception\Module\AiReporter\Report\PathNormalizer;
 use WebProject\Codeception\Module\AiReporter\Report\SourceExcerpt;
 use WebProject\Codeception\Module\AiReporter\Tests\Support\Fixture\PathNormalizerFactory;
+
+use function dirname;
 
 final class SourceExcerptTest extends Unit
 {

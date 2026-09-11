@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace WebProject\Codeception\Module\AiReporter\Report;
 
-use function array_reverse;
 use Codeception\Test\Interfaces\ScenarioDriven;
 use Codeception\Test\Test;
+
+use function array_reverse;
 use function count;
 
 /**
@@ -30,7 +31,7 @@ final class ScenarioExtractor
         $scenario = $test->getScenario();
         $steps    = [];
         foreach (array_reverse($scenario->getSteps()) as $step) {
-            $label = (string) $step;
+            $label = trim((string) $step);
             if ('' === $label) {
                 continue;
             }
