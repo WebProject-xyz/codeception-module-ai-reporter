@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace WebProject\Codeception\Module\AiReporter\Report;
 
+use Throwable;
+
 use function array_slice;
 use function array_unshift;
 use function count;
@@ -13,7 +15,6 @@ use function is_int;
 use function is_string;
 use function str_contains;
 use function str_starts_with;
-use Throwable;
 
 /**
  * @phpstan-import-type TraceFrame from ReportTypes

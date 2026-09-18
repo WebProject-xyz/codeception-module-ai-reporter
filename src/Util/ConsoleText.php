@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace WebProject\Codeception\Module\AiReporter\Util;
 
+use Symfony\Component\Console\Formatter\OutputFormatter;
+
 use function intdiv;
 use function max;
 use function mb_strlen;
 use function mb_substr;
 use function strtr;
-use Symfony\Component\Console\Formatter\OutputFormatter;
 
 final class ConsoleText
 {
