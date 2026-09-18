@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file. See
 [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [2.1.0](https://github.com/WebProject-xyz/codeception-module-ai-reporter/compare/2.0.1...2.1.0) (2026-09-18)
+
+### Features
+
+* **refactor:** extract FailureExtractor deep module and align architecture ([#23](https://github.com/WebProject-xyz/codeception-module-ai-reporter/issues/23)) ([ae79d8c](https://github.com/WebProject-xyz/codeception-module-ai-reporter/commit/ae79d8cc781e98ab8abe13102b42ad2ce60d50a2))
+
 ## [2.0.1](https://github.com/WebProject-xyz/codeception-module-ai-reporter/compare/2.0.0...2.0.1) (2026-09-04)
 
 ### Bug Fixes
