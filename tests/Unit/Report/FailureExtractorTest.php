@@ -30,7 +30,7 @@ final class FailureExtractorTest extends Unit
     protected function setUp(): void
     {
         parent::setUp();
-        $this->projectRoot = (string) realpath(__DIR__ . '/../../../../');
+        $this->projectRoot = (string) realpath(__DIR__ . '/../../../');
     }
 
     public function testExtractAssemblesFailureDataStructure(): void

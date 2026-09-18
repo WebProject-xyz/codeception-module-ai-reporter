@@ -23,7 +23,7 @@ final class ScenarioExtractorTest extends Unit
 
     public function testExtractReturnsStepsInReverseOrderWithNormalizedPathsAndFailureFlags(): void
     {
-        $projectRoot = (string) realpath(__DIR__ . '/../../../../');
+        $projectRoot = (string) realpath(__DIR__ . '/../../../');
         $filePath    = $projectRoot . '/tests/Unit/LoginCest.php';
         $extractor   = new ScenarioExtractor(PathNormalizerFactory::make(projectRoot: $projectRoot));
         $test        = new StubScenarioTest('name', $filePath, 'sig');
@@ -60,12 +60,12 @@ final class ScenarioExtractorTest extends Unit
         self::assertCount(2, $extracted);
         self::assertSame('fill field "username","admin"', $extracted[0]['step']);
         self::assertTrue($extracted[0]['failed']);
-        self::assertSame('../tests/Unit/LoginCest.php', $extracted[0]['file'] ?? null);
+        self::assertSame('tests/Unit/LoginCest.php', $extracted[0]['file'] ?? null);
         self::assertSame(12, $extracted[0]['line'] ?? null);
 
         self::assertSame('am on page "/login"', $extracted[1]['step']);
         self::assertFalse($extracted[1]['failed']);
-        self::assertSame('../tests/Unit/LoginCest.php', $extracted[1]['file'] ?? null);
+        self::assertSame('tests/Unit/LoginCest.php', $extracted[1]['file'] ?? null);
         self::assertSame(10, $extracted[1]['line'] ?? null);
     }
 
@@ -90,10 +90,12 @@ final class ScenarioExtractorTest extends Unit
         $extractor = new ScenarioExtractor(PathNormalizerFactory::make());
         $test      = new StubScenarioTest('name', '/repo/project/tests/LoginCest.php', 'sig');
 
-        $emptyStep = new class('') extends Step {};
-        $validStep = new class('validAction') extends Step {};
+        $emptyStep      = new class('') extends Step {};
+        $whitespaceStep = new class("   \t  ") extends Step {};
+        $validStep      = new class('validAction') extends Step {};
 
         $test->getScenario()->addStep($emptyStep);
+        $test->getScenario()->addStep($whitespaceStep);
         $test->getScenario()->addStep($validStep);
 
         $extracted = $extractor->extract($test, 8);
