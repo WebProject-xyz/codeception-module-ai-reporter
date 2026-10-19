@@ -13,14 +13,14 @@
   "homepage": "https://www.webproject.xyz",
   "require": {
     "php": "~8.3.0 || ~8.4.0 || ~8.5.0",
-    "codeception/codeception": "^5.3.5",
-    "webmozart/assert": "^1.12.1 || ^2.4.1"
+    "codeception/codeception": "^5.3.7",
+    "webmozart/assert": "^1.12.1 || ^2.5.0"
   },
   "require-dev": {
     "codeception/module-asserts": "^3.3",
-    "friendsofphp/php-cs-fixer": "^3.95.25",
+    "friendsofphp/php-cs-fixer": "^3.95.27",
     "phpstan/extension-installer": "^1.4.3",
-    "phpstan/phpstan": "^2.2.14",
+    "phpstan/phpstan": "^2.3.1",
     "phpstan/phpstan-webmozart-assert": "^2.0.0",
     "roave/security-advisories": "dev-latest",
     "webproject-xyz/php-cs-fixer-config": "^1.1.3"
